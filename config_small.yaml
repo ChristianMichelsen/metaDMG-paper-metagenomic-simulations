@@ -1,0 +1,25 @@
+samples:
+  Pitch-6__art__1000000: input-data/data/Pitch-6__art__1000000.dedup.filtered.bam
+  Pitch-6__deamSim__1000000: input-data/data/Pitch-6__deamSim__1000000.dedup.filtered.bam
+  Pitch-6__fragSim__1000000: input-data/data/Pitch-6__fragSim__1000000.dedup.filtered.bam
+  Pitch-6__art__50000000: input-data/data/Pitch-6__art__50000000.dedup.filtered.bam
+metaDMG_cpp: ./metaDMG-cpp
+names: names.dmp
+nodes: nodes.dmp
+acc2tax: acc2taxid.map.gz
+min_similarity_score: 0.95
+max_similarity_score: 1.0
+min_mapping_quality: 0
+lca_rank: ""
+max_position: 15
+min_reads: 0
+weight_type: 1
+custom_database: true
+forward_only: false
+output_dir: data
+parallel_samples: 6
+cores_per_sample: 1
+bayesian: true
+config_file: config.yaml
+damage_mode: lca
+version: 0.27.2
