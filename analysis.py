@@ -41,9 +41,8 @@ def nth_repl(s, old, new, n):
 # "Abiotrophia_sp001815865----GCF_001815865.1"
 
 parser_template = (
-    "{sample}---"
-    "{taxon1}-___"
-    "{taxon2}____"
+    "{sample}___"
+    "{taxon}____"
     "{accession:Accession}__"
     "{contig_num}---"
     "{read_num:Int}:"
@@ -187,7 +186,7 @@ def load_alignment_file(bam_file, feather_file):
 
     try:
         return pd.read_feather(feather_file)
-    except:
+    except FileNotFoundError:
         pass
 
     if ".fq" in bam_file.name:
@@ -206,15 +205,14 @@ def load_alignment_file(bam_file, feather_file):
             result = parser.parse(name).named
             result["seq"] = str(seq)
             result["tax_id"] = d_acc2taxid[result["accession"]]
-            result["taxon_accession"] = f"{result['taxon1']}----{result['accession']}"
+            result["taxon_accession"] = f"{result['taxon']}----{result['accession']}"
             results.append(result)
 
     df = pd.DataFrame(results)
 
     categories = [
         "sample",
-        "taxon1",
-        "taxon2",
+        "taxon",
         "accession",
         "contig_num",
         "ancient_modern",
@@ -228,6 +226,7 @@ def load_alignment_file(bam_file, feather_file):
     df.to_feather(feather_file)
 
     return df
+
 
 #%%
 
@@ -243,23 +242,43 @@ df_pitch6_1M_art = load_alignment_file(
 
 #%%
 
-# 83381
+tax_id = 134313
+taxon_accession = "Homo_sapiens----NC_012920.1"
 
-taxon_accession = "Acetobacterium_sp003260995----GCF_003260995.1"
-df_83381_frag = df_pitch6_1M_fragSim.query(f"taxon_accession == '{taxon_accession}'")
-df_83381_deam = df_pitch6_1M_deamSim.query(f"taxon_accession == '{taxon_accession}'")
-df_83381_art = df_pitch6_1M_art.query(f"taxon_accession == '{taxon_accession}'")
+# df_pitch6_1M_fragSim.query(f"taxon_accession == '{taxon_accession}'")
+df_homo_frag = df_pitch6_1M_fragSim.query(f"tax_id == {tax_id}")
+df_homo_deam = df_pitch6_1M_deamSim.query(f"tax_id == {tax_id}")
+df_homo_art = df_pitch6_1M_art.query(f"tax_id == {tax_id}")
 
-df_83381_deam["ancient_modern"].value_counts()
 
-df_83381_deam["fragment_length"].min()
-df_83381_deam["fragment_length"].max()
-df_83381_deam["fragment_length"].mean()
-df_83381_deam["fragment_length"].median()
+df_homo_deam["fragment_length"].min()
+df_homo_deam["fragment_length"].max()
+df_homo_deam["fragment_length"].mean()
 
-df_83381_frag.iloc[0]["seq"]
-df_83381_deam.iloc[0]["seq"]
+df_homo_deam.iloc[0]["seq"]
 
+# df_homo_deam["accession"].unique()
+# df_homo_deam["contig_num"].unique()
+# df_homo_deam["ancient_modern"].unique()
+# df_homo_deam["strand"].value_counts()
+
+
+# comm	    taxon	                        frag_type	seq_depth	seq_depth_rounded
+# Pitch-6	Homo_sapiens----NC_012920.1	    ancient	    20844	    108872.0
+# Pitch-6	Homo_sapiens----NC_012920.1	    modern	    0	        0.0
+
+# Taxon	                        Community	Coverage	        Read_length	    Read_length_std	    Read_length_min	    Read_length_max	onlyAncient	    D_max
+# Homo_sapiens----NC_012920.1	Pitch-6	    72.96559633027523	81	            16.263479571	    30	                81	            True	        0.14912868
+
+
+# Community	    Taxon	                        Rank	Read_length	    Read_length_std	    Read_length_min	    Read_length_max	    Perc_rel_abund
+# Pitch-6	    Homo_sapiens----NC_012920.1	    1	    81	            16.2634795716	    30	                81	                23.169172
+
+# Taxon	                        TaxId	Accession	    Fasta
+# Homo_sapiens----NC_012920.1	134313	NC_012920.1	    /maps/projects/lundbeck/scratch/eDNA/DBs/gtdb/r202/flavours/vanilla-organelles-virus/pkg/genomes/fasta/NC_012920.1_genomic.fna.gz
+
+
+#%%
 
 
 # comm	    taxon	                                        frag_type	seq_depth	seq_depth_rounded
@@ -277,31 +296,38 @@ df_83381_deam.iloc[0]["seq"]
 # Taxon	                                        TaxId	Accession	        Fasta
 # Acetobacterium_sp003260995----GCF_003260995.1	83381	GCF_003260995.1	    /vol/cloud/geogenetics/DBs/gtdb/r202/data/vanilla-organelles-virus/pkg/genomes/fasta/GCF_003260995.1_genomic.fna.gz
 
-
 # "comm": "Pitch-6",
-# "taxon": "Acetobacterium_sp003260995----GCF_003260995.1",
-# "rel_abund": 0.5144226637497638,
-# "genome_size": 3988368,
-# "accession": "GCF_003260995.1",
+# "taxon": "Homo_sapiens----NC_012920.1",
+# "rel_abund": 23.169172561638344,
+# "genome_size": 16569,
+# "accession": "NC_012920.1",
 # "onlyAncient": true,
 # "fragments_ancient": {
 #     "fragments": {
 #         "length": [
 #             30,
-#             81,
+#             31,
+#             76,
+#             81
 #         ],
 #         "freq": [
-#             0.004524662304682653,
-#             0.34546251644015785,
-#         ],
+#             0.005098572399728076,
+#             0.007672137515781295,
+#             0.008594736330970186,
+#             0.24084684859667865
+#         ]
 #     },
-#     "dist_params": {"scale": null, "sigma": null, "rnd_seed": null},
-#     "avg_len": 62.609414937175856,
-#     "seq_depth": 3318,
-#     "seq_depth_original": 3318,
-#     "fold": 0.05157899170788653,
-#     "fold_original": 0.05159002378917893,
+#     "dist_params": {
+#         "scale": null,
+#         "sigma": null,
+#         "rnd_seed": null
+#     },
+#     "avg_len": 58.695882295814314,
+#     "seq_depth": 20844,
+#     "seq_depth_original": 20844,
+#     "fold": 72.96469310157524,
+#     "fold_original": 72.96559633027523
 # },
 # "fragments_modern": null,
 # "coverage_enforced": true,
-# "seq_depth": 15974,
+# "seq_depth": 108872

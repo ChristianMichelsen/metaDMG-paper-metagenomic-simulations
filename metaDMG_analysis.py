@@ -68,5 +68,13 @@ df_results_Pitch_art = df_results.loc[
     df_results["sample"].str.contains("Pitch-6__art__")
 ]
 
+
+df_results_Pitch_art_1000000 = df_results.loc[
+df_results["sample"] == "Pitch-6__art__1000000"
+]
+
+
 for tax_id, group in df_results_Pitch_art.groupby("tax_id"):
     break
+
+df_results_Pitch_art_1000000.query("tax_id == '134313'").T
