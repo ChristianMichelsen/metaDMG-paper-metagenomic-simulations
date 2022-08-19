@@ -1,5 +1,6 @@
 #%%
 
+import gzip
 from collections import defaultdict
 from pathlib import Path
 
@@ -8,8 +9,12 @@ import numpy as np
 import pandas as pd
 import pysam
 import seaborn as sns
+from Bio import SeqIO
+from Bio.Seq import Seq
 from parse import compile
 from tqdm import tqdm
+
+from human_reference import reference
 
 # from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
 # from matplotlib.ticker import MaxNLocator, StrMethodFormatter
@@ -62,11 +67,13 @@ def fix_accession(accession):
 
 def fragment_parser(damaged_positions):
     if damaged_positions == "None":
-        return ""
+        return []
     elif "," not in damaged_positions:
-        return str([int(damaged_positions)])
+        # return str([int(damaged_positions)])
+        return [int(damaged_positions)]
     else:
-        return str([int(string_pos) for string_pos in damaged_positions.split(",")])
+        # return str([int(string_pos) for string_pos in damaged_positions.split(",")])
+        return [int(string_pos) for string_pos in damaged_positions.split(",")]
 
 
 parser = compile(
@@ -175,29 +182,23 @@ path_pitch6_1M_fragSim = path_pitch6_1M / "reads" / "Pitch-6_fragSim.fa.gz"
 path_pitch6_1M_deamSim = path_pitch6_1M / "reads" / "Pitch-6_deamSim.fa.gz"
 path_pitch6_1M_art = path_pitch6_1M / "reads" / "Pitch-6_art.fq.gz"
 
-import gzip
 
-from Bio import SeqIO
-
-# Abiotrophia_sp001815865----GCF_001815865.1
-
-
-def load_alignment_file(bam_file, feather_file):
+def load_alignment_file(alignment_file, feather_file):
 
     try:
         return pd.read_feather(feather_file)
     except FileNotFoundError:
         pass
 
-    if ".fq" in bam_file.name:
+    if ".fq" in alignment_file.name:
         alignment_type = "fastq"
-    elif ".fa" in bam_file.name:
+    elif ".fa" in alignment_file.name:
         alignment_type = "fasta"
     else:
-        raise AssertionError(f"Unknown alignment type: {bam_file.suffix}")
+        raise AssertionError(f"Unknown alignment type: {alignment_file.suffix}")
 
     results = []
-    with gzip.open(bam_file, "rt") as handle:
+    with gzip.open(alignment_file, "rt") as handle:
         for record in tqdm(SeqIO.parse(handle, alignment_type)):
             # break
             name = record.name
@@ -263,6 +264,67 @@ df_homo_deam.iloc[0]["seq"]
 # df_homo_deam["strand"].value_counts()
 
 
+df_homo_deam_damaged = df_homo_deam[
+    df_homo_deam["damaged_positions_in_fragment"].astype(bool)
+]
+
+df_homo_deam_damaged_pos = df_homo_deam_damaged.query("strand == '+'")
+
+series = df_homo_deam_damaged_pos.iloc[3]
+series
+
+k_CT = np.zeros(15, dtype=int)
+N_C = np.zeros(15, dtype=int)
+
+k_GA = np.zeros(15, dtype=int)
+N_G = np.zeros(15, dtype=int)
+
+
+seq = Seq(series.seq)
+ref = Seq(reference[series.reference_start : series.reference_end])
+
+print(seq)
+print(ref)
+
+if series.strand == "+":
+
+    for pos in series.damaged_positions_in_fragment:
+
+        if abs(pos) >= 15:
+            continue
+
+        if pos > 0:
+            k_CT[pos - 1] += 1
+            N_C[pos - 1] += 1
+        elif pos < 0:
+            pos = abs(pos)
+            k_GA[pos - 1] += 1
+            N_G[pos - 1] += 1
+        else:
+            raise AssertionError("pos == 0")
+
+    for i, base in enumerate(seq):
+        if i >= 15:
+            break
+
+        if base == "C":
+            N_C[i] += 1
+
+    for i, base in enumerate(reversed(seq)):
+        if i >= 15:
+            break
+
+        if base == "G":
+            N_G[i] += 1
+
+
+# if series.strand == "-":
+#     seq = seq.reverse_complement()
+
+
+#%%
+
+
 # comm	    taxon	                        frag_type	seq_depth	seq_depth_rounded
 # Pitch-6	Homo_sapiens----NC_012920.1	    ancient	    20844	    108872.0
 # Pitch-6	Homo_sapiens----NC_012920.1	    modern	    0	        0.0
@@ -276,25 +338,6 @@ df_homo_deam.iloc[0]["seq"]
 
 # Taxon	                        TaxId	Accession	    Fasta
 # Homo_sapiens----NC_012920.1	134313	NC_012920.1	    /maps/projects/lundbeck/scratch/eDNA/DBs/gtdb/r202/flavours/vanilla-organelles-virus/pkg/genomes/fasta/NC_012920.1_genomic.fna.gz
-
-
-#%%
-
-
-# comm	    taxon	                                        frag_type	seq_depth	seq_depth_rounded
-# Pitch-6	Acetobacterium_sp003260995----GCF_003260995.1	ancient	    3318	    15974.0
-# Pitch-6	Acetobacterium_sp003260995----GCF_003260995.1	modern	    0	        0.0
-
-# Taxon	                                        Community	Coverage	        Read_length	Read_length_std	    Read_length_min	Read_length_max	onlyAncient
-# Acetobacterium_sp003260995----GCF_003260995.1	Pitch-6	    1.89790335295038	81	        16.54811034608462	30	            81	            True
-
-
-# Community	Taxon	                                        Rank	Read_length	Read_length_std	    Read_length_min	Read_length_max	Perc_rel_abund
-# Pitch-6	Acetobacterium_sp003260995----GCF_003260995.1	13	    81	        16.54811034608462	30	            81	            0.5144226637497638
-
-
-# Taxon	                                        TaxId	Accession	        Fasta
-# Acetobacterium_sp003260995----GCF_003260995.1	83381	GCF_003260995.1	    /vol/cloud/geogenetics/DBs/gtdb/r202/data/vanilla-organelles-virus/pkg/genomes/fasta/GCF_003260995.1_genomic.fna.gz
 
 # "comm": "Pitch-6",
 # "taxon": "Homo_sapiens----NC_012920.1",
@@ -331,3 +374,7 @@ df_homo_deam.iloc[0]["seq"]
 # "fragments_modern": null,
 # "coverage_enforced": true,
 # "seq_depth": 108872
+
+#%%
+
+# %%
