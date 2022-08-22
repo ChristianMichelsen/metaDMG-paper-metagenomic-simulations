@@ -7,6 +7,14 @@ optional = false
 python-versions = ">=3.6"
 
 [[package]]
+name = "appdirs"
+version = "1.4.4"
+description = "A small Python module for determining appropriate platform-specific dirs, e.g. a \"user data dir\"."
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "appnope"
 version = "0.1.3"
 description = "Disable App Nap on macOS >= 10.9"
@@ -154,6 +162,14 @@ optional = false
 python-versions = "*"
 
 [[package]]
+name = "certifi"
+version = "2022.6.15"
+description = "Python package for providing Mozilla's CA Bundle."
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[[package]]
 name = "cffi"
 version = "1.15.1"
 description = "Foreign Function Interface for Python calling C code."
@@ -163,6 +179,46 @@ python-versions = "*"
 
 [package.dependencies]
 pycparser = "*"
+
+[[package]]
+name = "cfgrib"
+version = "0.9.10.1"
+description = "Python interface to map GRIB files to the NetCDF Common Data Model following the CF Convention using ecCodes."
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+attrs = ">=19.2"
+click = "*"
+eccodes = ">=0.9.8"
+numpy = "*"
+
+[package.extras]
+tests = ["dask", "flake8", "pytest", "pytest-cov", "scipy", "xarray (>=0.15)"]
+xarray = ["xarray (>=0.15)"]
+
+[[package]]
+name = "cftime"
+version = "1.6.1"
+description = "Time-handling functionality from netcdf4-python"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.dependencies]
+numpy = ">1.13.3"
+
+[[package]]
+name = "charset-normalizer"
+version = "2.1.1"
+description = "The Real First Universal Charset Detector. Open, modern and actively maintained alternative to Chardet."
+category = "main"
+optional = false
+python-versions = ">=3.6.0"
+
+[package.extras]
+unicode_backport = ["unicodedata2"]
 
 [[package]]
 name = "click"
@@ -310,6 +366,39 @@ optional = false
 python-versions = ">=3"
 
 [[package]]
+name = "docopt"
+version = "0.6.2"
+description = "Pythonic argument parser, that will make you smile"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
+name = "eccodes"
+version = "1.4.2"
+description = "Python interface to the ecCodes GRIB and BUFR decoder/encoder"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+attrs = "*"
+cffi = "*"
+findlibs = "*"
+numpy = "*"
+
+[[package]]
+name = "ecmwflibs"
+version = "0.4.17"
+description = "Wraps ECMWF tools (experimental)"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+findlibs = "*"
+
+[[package]]
 name = "entrypoints"
 version = "0.4"
 description = "Discover and load entry points from installed packages."
@@ -365,6 +454,14 @@ python-versions = "*"
 devel = ["colorama", "jsonschema", "json-spec", "pylint", "pytest", "pytest-benchmark", "pytest-cache", "validictory"]
 
 [[package]]
+name = "findlibs"
+version = "0.0.2"
+description = "A packages to search for shared libraries on various platforms"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "flask"
 version = "2.2.2"
 description = "A simple framework for building complex web applications."
@@ -416,6 +513,68 @@ type1 = ["xattr"]
 ufo = ["fs (>=2.2.0,<3)"]
 unicode = ["unicodedata2 (>=14.0.0)"]
 woff = ["zopfli (>=0.1.4)", "brotlicffi (>=0.8.0)", "brotli (>=1.0.1)"]
+
+[[package]]
+name = "fsspec"
+version = "2022.7.1"
+description = "File-system specification"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.extras]
+tqdm = ["tqdm"]
+ssh = ["paramiko"]
+smb = ["smbprotocol"]
+sftp = ["paramiko"]
+s3 = ["s3fs"]
+oci = ["ocifs"]
+libarchive = ["libarchive-c"]
+http = ["aiohttp", "requests"]
+hdfs = ["pyarrow (>=1)"]
+gui = ["panel"]
+gs = ["gcsfs"]
+github = ["requests"]
+git = ["pygit2"]
+gcs = ["gcsfs"]
+fuse = ["fusepy"]
+entrypoints = ["importlib-metadata"]
+dropbox = ["dropbox", "requests", "dropboxdrivefs"]
+dask = ["distributed", "dask"]
+arrow = ["pyarrow (>=1)"]
+adl = ["adlfs"]
+abfs = ["adlfs"]
+
+[[package]]
+name = "h5netcdf"
+version = "1.0.2"
+description = "netCDF4 via h5py"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+h5py = "*"
+packaging = "*"
+
+[[package]]
+name = "h5py"
+version = "3.7.0"
+description = "Read and write HDF5 files from Python"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.dependencies]
+numpy = ">=1.14.5"
+
+[[package]]
+name = "idna"
+version = "3.3"
+description = "Internationalized Domain Names in Applications (IDNA)"
+category = "main"
+optional = false
+python-versions = ">=3.5"
 
 [[package]]
 name = "iminuit"
@@ -918,6 +1077,18 @@ optional = false
 python-versions = ">=3.5"
 
 [[package]]
+name = "netcdf4"
+version = "1.6.0"
+description = "Provides an object-oriented python interface to the netCDF version 4 library."
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+cftime = "*"
+numpy = ">=1.9"
+
+[[package]]
 name = "notebook"
 version = "6.4.12"
 description = "A web-based notebook environment for interactive computing"
@@ -1125,6 +1296,24 @@ python-versions = ">=3.6"
 tenacity = ">=6.2.0"
 
 [[package]]
+name = "pooch"
+version = "1.6.0"
+description = "\"Pooch manages your Python library's sample data files: it automatically downloads and stores them in a local directory, with support for versioning and corruption checks.\""
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+appdirs = ">=1.3.0"
+packaging = ">=20.0"
+requests = ">=2.19.0"
+
+[package.extras]
+xxhash = ["xxhash (>=1.4.3)"]
+sftp = ["paramiko (>=2.7.0)"]
+progress = ["tqdm (>=4.41.0,<5.0.0)"]
+
+[[package]]
 name = "prometheus-client"
 version = "0.14.1"
 description = "Python client for the Prometheus monitoring system."
@@ -1202,6 +1391,40 @@ description = "C parser in Python"
 category = "main"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+
+[[package]]
+name = "pydap"
+version = "3.3.0"
+description = "An implementation of the Data Access Protocol."
+category = "main"
+optional = false
+python-versions = ">=3.6"
+develop = false
+
+[package.dependencies]
+beautifulsoup4 = "*"
+docopt = "*"
+Jinja2 = "*"
+numpy = "*"
+requests = "*"
+six = ">=1.4.0"
+Webob = "*"
+
+[package.extras]
+cas = ["lxml"]
+docs = ["sphinx", "pygments", "sphinx-rtd-theme"]
+functions = ["gsw (==3.0.6)", "coards"]
+"handlers.netcdf" = ["netcdf4", "ordereddict"]
+netcdf = ["netcdf4", "ordereddict"]
+server = ["gunicorn", "pastedeploy"]
+testing = ["gsw (==3.0.6)", "coards", "lxml", "gunicorn", "pastedeploy", "netcdf4", "ordereddict", "pytest (>=3.6)", "pytest-cov", "pytest-attrib", "beautifulsoup4", "requests-mock", "webtest", "flake8", "werkzeug", "pyopenssl"]
+tests = ["pytest (>=3.6)", "pytest-cov", "pytest-attrib", "beautifulsoup4", "requests-mock", "webtest", "flake8", "werkzeug", "pyopenssl"]
+
+[package.source]
+type = "git"
+url = "https://github.com/pydap/pydap"
+reference = "3.3.0"
+resolved_reference = "bbafc7a101f96c3b49358f2a5f7bfe593f7a3e6f"
 
 [[package]]
 name = "pygments"
@@ -1292,6 +1515,24 @@ python-versions = ">=3.6"
 [package.dependencies]
 cffi = {version = "*", markers = "implementation_name == \"pypy\""}
 py = {version = "*", markers = "implementation_name == \"pypy\""}
+
+[[package]]
+name = "requests"
+version = "2.28.1"
+description = "Python HTTP for Humans."
+category = "main"
+optional = false
+python-versions = ">=3.7, <4"
+
+[package.dependencies]
+certifi = ">=2017.4.17"
+charset-normalizer = ">=2,<3"
+idna = ">=2.5,<4"
+urllib3 = ">=1.21.1,<1.27"
+
+[package.extras]
+use_chardet_on_py3 = ["chardet (>=3.0.2,<6)"]
+socks = ["PySocks (>=1.5.6,!=1.5.7)"]
 
 [[package]]
 name = "rich"
@@ -1531,6 +1772,19 @@ optional = false
 python-versions = ">=3.7"
 
 [[package]]
+name = "urllib3"
+version = "1.26.11"
+description = "HTTP library with thread-safe connection pooling, file post, and more."
+category = "main"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*, <4"
+
+[package.extras]
+socks = ["PySocks (>=1.5.6,!=1.5.7,<2.0)"]
+secure = ["ipaddress", "certifi", "idna (>=2.0.0)", "cryptography (>=1.3.4)", "pyOpenSSL (>=0.14)"]
+brotli = ["brotlipy (>=0.6.0)", "brotli (>=1.0.9)", "brotlicffi (>=0.8.0)"]
+
+[[package]]
 name = "wcwidth"
 version = "0.2.5"
 description = "Measures the displayed width of unicode strings in a terminal"
@@ -1545,6 +1799,18 @@ description = "Character encoding aliases for legacy web content"
 category = "main"
 optional = false
 python-versions = "*"
+
+[[package]]
+name = "webob"
+version = "1.8.7"
+description = "WSGI request and response object"
+category = "main"
+optional = false
+python-versions = ">=2.7,!=3.0.*,!=3.1.*,!=3.2.*"
+
+[package.extras]
+docs = ["Sphinx (>=1.7.5)", "pylons-sphinx-themes"]
+testing = ["pytest (>=3.1.0)", "coverage", "pytest-cov", "pytest-xdist"]
 
 [[package]]
 name = "werkzeug"
@@ -1572,6 +1838,27 @@ python-versions = "*"
 notebook = ">=4.4.1"
 
 [[package]]
+name = "xarray"
+version = "2022.6.0"
+description = "N-D labeled arrays and datasets in Python"
+category = "main"
+optional = false
+python-versions = ">=3.8"
+
+[package.dependencies]
+numpy = ">=1.19"
+packaging = ">=20.0"
+pandas = ">=1.2"
+
+[package.extras]
+viz = ["nc-time-axis", "seaborn", "matplotlib"]
+parallel = ["dask"]
+io = ["pooch", "cfgrib", "rasterio", "cftime", "fsspec", "zarr", "pydap", "scipy", "h5netcdf", "netcdf4"]
+docs = ["scanpydoc", "nbsphinx", "jupyter-client", "ipykernel", "ipython", "sphinx-rtd-theme", "sphinx-autosummary-accessors", "nc-time-axis", "seaborn", "matplotlib", "dask", "flox", "numbagg", "bottleneck", "pooch", "cfgrib", "rasterio", "cftime", "fsspec", "zarr", "pydap", "scipy", "h5netcdf", "netcdf4"]
+complete = ["nc-time-axis", "seaborn", "matplotlib", "dask", "flox", "numbagg", "bottleneck", "pooch", "cfgrib", "rasterio", "cftime", "fsspec", "zarr", "pydap", "scipy", "h5netcdf", "netcdf4"]
+accel = ["flox", "numbagg", "bottleneck", "scipy"]
+
+[[package]]
 name = "zipp"
 version = "3.8.1"
 description = "Backport of pathlib-compatible object wrapper for zip files"
@@ -1586,10 +1873,11 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.9,<3.11"
-content-hash = "3ad860f496e694e848c6e9ba6370b6486b79e430e18584dbe679afc3f8ab0979"
+content-hash = "667d4219284e19718ffcf86d7a405732a7ad89654dd0577401595a58765f3cbb"
 
 [metadata.files]
 absl-py = []
+appdirs = []
 appnope = []
 argon2-cffi = []
 argon2-cffi-bindings = []
@@ -1601,7 +1889,11 @@ biopython = []
 black = []
 bleach = []
 brotli = []
+certifi = []
 cffi = []
+cfgrib = []
+cftime = []
+charset-normalizer = []
 click = []
 colorama = []
 commonmark = []
@@ -1616,13 +1908,21 @@ decorator = []
 defusedxml = []
 dill = []
 diskcache = []
+docopt = []
+eccodes = []
+ecmwflibs = []
 entrypoints = []
 etils = []
 executing = []
 fastjsonschema = []
+findlibs = []
 flask = []
 flask-compress = []
 fonttools = []
+fsspec = []
+h5netcdf = []
+h5py = []
+idna = []
 iminuit = []
 importlib-metadata = []
 importlib-resources = []
@@ -1657,6 +1957,7 @@ nbclient = []
 nbconvert = []
 nbformat = []
 nest-asyncio = []
+netcdf4 = []
 notebook = []
 numba = []
 numpy = []
@@ -1673,6 +1974,7 @@ pickleshare = []
 pillow = []
 platformdirs = []
 plotly = []
+pooch = []
 prometheus-client = []
 prompt-toolkit = []
 psutil = []
@@ -1681,6 +1983,7 @@ pure-eval = []
 py = []
 pyarrow = []
 pycparser = []
+pydap = []
 pygments = []
 pyparsing = []
 pyrsistent = []
@@ -1691,6 +1994,7 @@ pywin32 = []
 pywinpty = []
 pyyaml = []
 pyzmq = []
+requests = []
 rich = []
 scipy = []
 seaborn = []
@@ -1710,8 +2014,11 @@ tqdm = []
 traitlets = []
 typer = []
 typing-extensions = []
+urllib3 = []
 wcwidth = []
 webencodings = []
+webob = []
 werkzeug = []
 widgetsnbextension = []
+xarray = []
 zipp = []

@@ -1,0 +1,22 @@
+samples:
+  Pitch-6__art__1000000-local: input-data/data/Pitch-6__art__1000000.dedup.filtered.bam
+metaDMG_cpp: ./metaDMG-cpp
+names: null
+nodes: null
+acc2tax: null
+min_similarity_score: 0.95
+max_similarity_score: 1.0
+min_mapping_quality: 0
+lca_rank: ''
+max_position: 15
+min_reads: 0
+weight_type: 1
+custom_database: false
+forward_only: false
+output_dir: data
+parallel_samples: 1
+cores_per_sample: 1
+bayesian: true
+config_file: config-Pitch6-local.yaml
+damage_mode: local
+version: 0.28.4
