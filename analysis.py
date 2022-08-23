@@ -1,9 +1,12 @@
 #%%
 
+import gzip
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+import seaborn as sns
 
 import utils
 from human_reference import reference
@@ -70,13 +73,13 @@ df_fit_results_art = pd.read_parquet(
 
 #%%
 
-tax_id = 134313
+tax_id_homo = 134313
 taxon_accession = "Homo_sapiens----NC_012920.1"
 
 # df_alignment_frag.query(f"taxon_accession == '{taxon_accession}'")
-df_homo_frag = df_alignment_frag.query(f"tax_id == {tax_id}")
-df_homo_deam = df_alignment_deam.query(f"tax_id == {tax_id}")
-df_homo_art = df_alignment_art.query(f"tax_id == {tax_id}")
+df_homo_frag = df_alignment_frag.query(f"tax_id == {tax_id_homo}")
+df_homo_deam = df_alignment_deam.query(f"tax_id == {tax_id_homo}")
+# df_homo_art = df_alignment_art.query(f"tax_id == {tax_id_homo}")
 
 # df_homo_deam["fragment_length"].min()
 # df_homo_deam["fragment_length"].max()
@@ -88,6 +91,173 @@ df_homo_art = df_alignment_art.query(f"tax_id == {tax_id}")
 # df_homo_deam["contig_num"].unique()
 # df_homo_deam["ancient_modern"].unique()
 # df_homo_deam["strand"].value_counts()
+
+df_mismatch_deam.sel(tax_id=tax_id_homo).loc["k_CT"]
+df_mismatch_deam.sel(tax_id=tax_id_homo).loc["N_C"]
+
+
+df_fit_mismatch_deam.query(f"tax_id == '{tax_id_homo}' & position > 0")["CT"]
+df_fit_mismatch_deam.query(f"tax_id == '{tax_id_homo}' & position > 0")["C"]
+
+
+N_reads_alignment_deam = len(df_alignment_deam.query(f"tax_id == {tax_id_homo}"))
+N_reads_lca_deam = df_fit_results_deam.query(f"tax_id == '{tax_id_homo}'")["N_reads"]
+df_fit_results_deam.query(f"tax_id == '{tax_id_homo}'")["N_alignments"]
+
+
+#%%
+
+if False:
+    lca_file = path_fit / "lca" / f"{name}__deamSim__{N_reads}.lca.txt.gz"
+    df_lca_tax_id = pd.DataFrame(utils.read_lca_file(lca_file)[tax_id])
+
+    len(df_lca_tax_id)
+    df_lca_tax_id["N_alignments"].sum()
+
+    df_lca_tax_id.lca.iloc[0]
+    df_lca_tax_id.lca.str.contains("134313:s__Homo sapiens").sum()
+
+    df_lca_tax_id.loc[
+        ~df_lca_tax_id.lca.str.contains("134313:s__Homo sapiens")
+    ].lca.unique()
+
+
+#%%
+
+df_fit_mismatch_deam.query(f"tax_id == '{tax_id_homo}'").loc[:, "AA":"TT"].sum(axis=1)
+
+
+#%%
+
+# LCA filtering analysis
+
+if True:
+
+    bam_file = (
+        Path("input-data") / "data" / f"{name}__deamSim__{N_reads}.dedup.filtered.bam"
+    )
+
+    lca_csv_file = Path("data") / "analysis_lca" / f"{name}__deamSim__{N_reads}.lca.csv"
+    lca_csv_file.parent.mkdir(exist_ok=True, parents=True)
+
+    if lca_csv_file.exists():
+        df_lca_stats_min_similarity_score = pd.read_csv(lca_csv_file)
+
+    else:
+        df_lca_stats_min_similarity_score = (
+            utils.compute_lca_stats_min_similarity_score(
+                bam_file=bam_file,
+                df_alignment=df_alignment_deam,
+            )
+        )
+        df_lca_stats_min_similarity_score.to_csv(lca_csv_file, index=False)
+
+    fig, ax = plt.subplots(figsize=(16, 10))
+    for tax_id, df_ in df_lca_stats_min_similarity_score.groupby("tax_id"):
+        ax.plot(df_["fraction_lca_stat"].values)
+    ax.set_xticks(
+        np.arange(len(utils.MIN_SIMILARITY_SCORES)),
+        labels=utils.MIN_SIMILARITY_SCORES,
+    )
+    ax.set(
+        xlabel="min_similarity_score",
+        ylabel="fraction of reads after LCA (stat)",
+        title=f"{name}__deamSim__{N_reads} (stat)",
+    )
+    fig.savefig(
+        f"figures/{name}__deamSim__{N_reads}__fraction_reads_after_lca_stats.pdf"
+    )
+
+    fig, ax = plt.subplots(figsize=(16, 10))
+    for tax_id, df_ in df_lca_stats_min_similarity_score.groupby("tax_id"):
+        ax.plot(df_["fraction_lca_full"].values)
+    ax.set_xticks(
+        np.arange(len(utils.MIN_SIMILARITY_SCORES)),
+        labels=utils.MIN_SIMILARITY_SCORES,
+    )
+    ax.set(
+        xlabel="min_similarity_score",
+        ylabel="fraction of reads after LCA (full)",
+        title=f"{name}__deamSim__{N_reads} (full)",
+    )
+    fig.savefig(
+        f"figures/{name}__deamSim__{N_reads}__fraction_reads_after_lca_full.pdf"
+    )
+
+
+#%%
+
+# damage analysis
+
+#%%
+
+df_simulation = utils.extract_simulation_parameters(name, N_reads)
+
+
+#%%
+
+df_fit_results_cols = [
+    "tax_id",
+    "tax_name",
+    "tax_rank",
+    "sample",
+    #
+    "N_reads",
+    "N_alignments",
+    "mean_L",
+    "mean_GC",
+    "std_L",
+    "std_GC",
+    #
+    "D_max",
+    "D_max_std",
+    #
+    "Bayesian_D_max",
+    "Bayesian_D_max_std",
+    #
+    "lambda_LR",
+    "Bayesian_z",
+    #
+    "A",
+    "A_std",
+    "q",
+    "q_std",
+    "c",
+    "c_std",
+    "phi",
+    "phi_std",
+    #
+    "rho_Ac",
+    "valid",
+    "asymmetry",
+    #
+    "N_x=1_forward",
+    "N_x=1_reverse",
+    "N_sum_total",
+    "N_sum_forward",
+    "N_sum_reverse",
+    "N_min",
+    "k_sum_total",
+    "k_sum_forward",
+    "k_sum_reverse",
+    #
+    "Bayesian_z",
+    "Bayesian_D_max",
+    "Bayesian_A",
+    "Bayesian_A_std",
+    "Bayesian_q",
+    "Bayesian_q_std",
+    "Bayesian_c",
+    "Bayesian_c_std",
+    "Bayesian_phi",
+    "Bayesian_phi_std",
+    "Bayesian_rho_Ac",
+]
+
+
+df_fit_results_frag.query(f"tax_id == '{tax_id_homo}'")
+df_fit_results_deam.query(f"tax_id == '{tax_id_homo}'")
+df_fit_results_art.query(f"tax_id == '{tax_id_homo}'")
 
 
 #%%

@@ -1,4 +1,7 @@
+#%%
 import gzip
+import shlex
+import subprocess
 from collections import defaultdict
 from pathlib import Path
 
@@ -322,3 +325,226 @@ def load_alignment_file(path_alignment, feather_file, xarray_file, max_position=
     # da.loc["k_CT"]
     # da.loc["k_CT"][0]
     # da.loc["k_CT"].isel(tax_id=0)
+
+
+#%%
+
+
+parser_template_lca = (
+    parser_template + ":{seq}:{L:Int}:{N_alignments:Int}:{GC:Float}\t{lca}"
+)
+
+parser_lca = compile(
+    parser_template_lca,
+    dict(Accession=fix_accession, Int=int, Fragment=fragment_parser, Float=float),
+)
+
+
+def read_lca_file(lca_file):
+
+    lca_parsed_results = defaultdict(lambda: [])
+    with gzip.open(lca_file, "rt") as a_file:
+        for i, line in enumerate(a_file):
+            if i == 0:
+                continue
+
+            stripped_line = line.strip()
+            parsed_result = parser_lca.parse(stripped_line).named
+            parsed_result["tax_id"] = tax_id = d_acc2taxid[parsed_result["accession"]]
+
+            lca_parsed_results[tax_id].append(parsed_result)
+
+    return dict(lca_parsed_results)
+
+
+#%%
+
+
+def delete_temp_lca_files():
+    for path in Path(".").glob("outnames*"):
+        path.unlink()
+
+    for path in Path(".").glob("*.bam.bin"):
+        path.unlink()
+
+
+MIN_SIMILARITY_SCORES = [
+    0.5,
+    0.7,
+    0.8,
+    0.9,
+    0.93,
+    0.94,
+    0.95,
+    0.955,
+    0.96,
+    0.965,
+    0.97,
+    0.975,
+    0.98,
+    0.985,
+    0.99,
+    0.9925,
+    0.995,
+    0.9975,
+    1.0,
+]
+
+
+# min_similarity_score = 0.9
+def compute_lca_stats_min_similarity_score(
+    bam_file,
+    df_alignment,
+    min_similarity_scores=None,
+):
+
+    if min_similarity_scores is None:
+        min_similarity_scores = MIN_SIMILARITY_SCORES
+
+    d_out = []
+    # min_similarity_score = 0.9
+    for min_similarity_score in tqdm(min_similarity_scores):
+
+        delete_temp_lca_files()
+
+        command = (
+            f"./metaDMG-cpp lca "
+            f"-bam {bam_file} "
+            f"-names names.dmp "
+            f"-nodes nodes.dmp "
+            f"-acc2tax acc2taxid.map.gz "
+            f"-simscorelow {min_similarity_score} "
+            f"-simscorehigh 1.0 "
+            f"-minmapq 0 "
+            f"-howmany 15 "
+            f"-weighttype 1 "
+            f"-fix_ncbi 0 "
+            f"-lca_rank species"
+        )
+
+        run_lca = subprocess.run(
+            shlex.split(command),
+            stdout=subprocess.DEVNULL,
+            check=True,
+        )
+
+        lca_stats_cols = [
+            "tax_id",
+            "N_reads",
+            "L_mean",
+            "L_var",
+            "GC_mean",
+            "GC_var",
+            "name",
+            "rank",
+        ]
+        df_lca_stats = pd.read_csv("outnames.stat", sep="\t", names=lca_stats_cols)
+
+        lca_file = "outnames.lca.gz"
+        d_lca_full = read_lca_file(lca_file)
+
+        for tax_id, df_species in df_alignment.groupby("tax_id"):
+            # break
+            N_reads_seq_depth = len(df_species)
+
+            df_lca_stats_tax_id = df_lca_stats.query(f"tax_id == {tax_id}")
+            assert len(df_lca_stats_tax_id) == 1
+            N_reads_lca_stat = df_lca_stats_tax_id.iloc[0]["N_reads"]
+            name = df_lca_stats_tax_id.iloc[0]["name"]
+
+            N_reads_lca_full = len(d_lca_full[tax_id])
+
+            d_out.append(
+                {
+                    "min_similarity_score": min_similarity_score,
+                    "tax_id": tax_id,
+                    "name": name,
+                    "N_reads_seq_depth": N_reads_seq_depth,
+                    "N_reads_lca_stat": N_reads_lca_stat,
+                    "N_reads_lca_full": N_reads_lca_full,
+                }
+            )
+
+    delete_temp_lca_files()
+
+    df = pd.DataFrame(d_out)
+    df["fraction_lca_stat"] = df["N_reads_lca_stat"] / df["N_reads_seq_depth"]
+    df["fraction_lca_full"] = df["N_reads_lca_full"] / df["N_reads_seq_depth"]
+    return df
+
+
+#%%
+
+
+def load_communities_read_abundances(name, N_reads):
+
+    path_communities_read_abundances = (
+        Path("input-data")
+        / "data-pre-mapping"
+        / name
+        / "single"
+        / str(N_reads)
+        / f"{name}.communities_read-abundances.tsv"
+    )
+    return pd.read_csv(path_communities_read_abundances, sep="\t")
+
+
+#%%
+
+
+def load_genome_composition(name, N_reads):
+
+    path_genome_composition = (
+        Path("input-data")
+        / "data-pre-mapping"
+        / name
+        / "single"
+        / str(N_reads)
+        / f"{name}.genome-compositions.tsv"
+    )
+    return pd.read_csv(path_genome_composition, sep="\t")
+
+
+#%%
+
+
+def extract_simulation_parameters(name, N_reads):
+
+    df_communities_read_abundances = load_communities_read_abundances(name, N_reads)
+    df_genome_composition = load_genome_composition(name, N_reads)
+
+    out = []
+    for (taxon_accession, _df) in df_communities_read_abundances.groupby(
+        "taxon", sort=False
+    ):
+        # break
+        assert len(_df) == 2
+
+        taxon, accession = taxon_accession.split("----")
+        tax_id = d_acc2taxid[accession]
+
+        seq_depth_ancient = _df.query("frag_type == 'ancient'").iloc[0]["seq_depth"]
+        seq_depth_modern = _df.query("frag_type == 'modern'").iloc[0]["seq_depth"]
+
+        s_genome_composition = df_genome_composition.query(
+            f"Taxon == '{taxon_accession}'"
+        )
+        assert len(s_genome_composition) == 1
+        s_genome_composition = s_genome_composition.iloc[0]
+        only_ancient = s_genome_composition["onlyAncient"]
+        D_max_simulation = s_genome_composition["D_max"]
+
+        out.append(
+            {
+                "tax_id": tax_id,
+                "taxon": taxon,
+                "accession": accession,
+                "seq_depth_ancient": seq_depth_ancient,
+                "seq_depth_modern": seq_depth_modern,
+                "fraction_ancient": seq_depth_ancient
+                / (seq_depth_ancient + seq_depth_modern),
+                "only_ancient": only_ancient,
+                "D_max_simulation": D_max_simulation,
+            }
+        )
+    return pd.DataFrame(out)
