@@ -36,6 +36,8 @@ pooch = "^1.6.0"
 pydap = {git = "https://github.com/pydap/pydap", rev = "3.3.0"}
 eccodes = "^1.4.2"
 ecmwflibs = "^0.4.17"
+plotly = "^5.10.0"
+joblib = "^1.1.0"
 
 
 [tool.poetry.group.dev.dependencies]

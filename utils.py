@@ -2,16 +2,15 @@
 import gzip
 import shlex
 import subprocess
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
+import joblib
 import numpy as np
 import pandas as pd
-import pysam
-import xarray as xr
+import parse
 from Bio import SeqIO
 from Bio.Seq import Seq
-from parse import compile
 from tqdm import tqdm
 
 
@@ -65,7 +64,7 @@ def fragment_parser(damaged_positions):
         return [int(string_pos) for string_pos in damaged_positions.split(",")]
 
 
-parser = compile(
+parser = parse.compile(
     parser_template,
     dict(Accession=fix_accession, Int=int, Fragment=fragment_parser),
 )
@@ -81,7 +80,8 @@ def strip(str_: str) -> str:
     return str_.strip()
 
 
-def load_names(names_file: str | Path) -> pd.DataFrame:
+# def load_names(names_file: str | Path) -> pd.DataFrame:
+def load_names(names_file):
     """
     load names.dmp and convert it into a pandas.DataFrame.
     Taken from https://github.com/zyxue/ncbitax2lin/blob/master/ncbitax2lin/data_io.py
@@ -111,7 +111,8 @@ df_names = load_names(names_file)
 df_names
 
 
-def load_nodes(nodes_file: str | Path) -> pd.DataFrame:
+# def load_nodes(nodes_file: str | Path) -> pd.DataFrame:
+def load_nodes(nodes_file):
     """
     load nodes.dmp and convert it into a pandas.DataFrame
     """
@@ -131,7 +132,8 @@ nodes_file = Path("nodes.dmp")
 df_nodes = load_nodes(nodes_file)
 
 
-def load_acc2taxid(acc2taxid_file: str | Path) -> pd.DataFrame:
+# def load_acc2taxid(acc2taxid_file: str | Path) -> pd.DataFrame:
+def load_acc2taxid(acc2taxid_file):
     """
     load acc2taxid.map and convert it into a pandas.DataFrame
     """
@@ -164,86 +166,69 @@ def acc2name(accesion):
 #%%
 
 
-def get_alignment_files(name, N_reads):
-    path = (
-        Path("input-data")
-        / "data-pre-mapping"
-        / name
-        / "single"
-        / str(N_reads)
-        / "reads"
-    )
-    path_frag = path / f"{name}_fragSim.fa.gz"
-    path_deam = path / f"{name}_deamSim.fa.gz"
-    path_art = path / f"{name}_art.fq.gz"
-    return path_frag, path_deam, path_art
+def get_simulation_alignment_paths(path_alignment_files, name, N_reads):
+    path = path_alignment_files / name / "single" / str(N_reads) / "reads"
+
+    paths = {
+        "frag": path / f"{name}_fragSim.fa.gz",
+        "deam": path / f"{name}_deamSim.fa.gz",
+        "art": path / f"{name}_art.fq.gz",
+    }
+
+    return paths
 
 
 #%%
 
 
-def update_counts_bang(
-    seq,
-    strand,
-    damaged_positions_in_fragment,
-    k_CT,
-    N_C,
-    k_GA,
-    N_G,
+def fix_sim_name(sim_name, d_sim_name_translate):
+    d_translate = {value: key for key, value in d_sim_name_translate.items()}
+    return d_translate[sim_name]
+
+
+def get_sample_N_reads_simulation_method(path_data, d_sim_name_translate):
+
+    parser_results_path = parse.compile(
+        "{sample}__{sim_name:SimName}__{N_reads:Int}.results",
+        dict(Int=int, SimName=lambda s: fix_sim_name(s, d_sim_name_translate)),
+    )
+
+    for path in (path_data / "results").glob("*.parquet"):
+        d = parser_results_path.parse(path.stem).named
+        yield d["sample"], d["N_reads"], d["sim_name"]
+
+
+#%%
+
+
+def extract_unique_read_name(result):
+    return (
+        f"{result['sample']}___"
+        f"{result['taxon']}____"
+        f"{result['accession'].replace('.1', '_1')}__"
+        f"{result['contig_num']}---"
+        f"{result['read_num']}"
+    )
+
+
+# path_alignment = path_alignment_deam
+
+
+def load_simulation_alignment(
+    path_alignment,
+    # d_reference_sequences,
+    feather_file,
     max_position=15,
+    use_tqdm=False,
 ):
 
-    if strand == "-":
-        seq = seq.reverse_complement()
-
-    if strand == "+":
-        multiplier = 1
-    else:
-        multiplier = -1
-
-    for pos in damaged_positions_in_fragment:
-
-        # reverse strand, opposite direction
-        pos *= multiplier
-
-        if abs(pos) >= max_position:
-            continue
-
-        if pos > 0:
-            k_CT[pos - 1] += 1
-            N_C[pos - 1] += 1
-        elif pos < 0:
-            pos = abs(pos)
-            k_GA[pos - 1] += 1
-            N_G[pos - 1] += 1
-        else:
-            raise AssertionError("pos == 0")
-
-    for i, base in enumerate(seq):
-        if i >= max_position:
-            break
-
-        if base == "C":
-            N_C[i] += 1
-
-    for i, base in enumerate(reversed(seq)):
-        if i >= max_position:
-            break
-
-        if base == "G":
-            N_G[i] += 1
-
-
-#%%
-
-
-def load_alignment_file(path_alignment, feather_file, xarray_file, max_position=15):
+    # feather_file_mismatch = str(feather_file).replace(".feather", ".mismatch.feather")
 
     try:
         df = pd.read_feather(feather_file)
-        with xr.open_dataarray(xarray_file) as ds:
-            da = ds
-        return df, da
+        # df_mismatch = pd.read_feather(feather_file_mismatch)
+        # return df, df_mismatch
+        return df
 
     except FileNotFoundError:
         pass
@@ -255,33 +240,37 @@ def load_alignment_file(path_alignment, feather_file, xarray_file, max_position=
     else:
         raise AssertionError(f"Unknown alignment type: {path_alignment.suffix}")
 
-    k_CT = defaultdict(lambda: np.zeros(max_position, dtype=int))
-    N_C = defaultdict(lambda: np.zeros(max_position, dtype=int))
-    k_GA = defaultdict(lambda: np.zeros(max_position, dtype=int))
-    N_G = defaultdict(lambda: np.zeros(max_position, dtype=int))
-
+    d_counter = defaultdict(lambda: Counter())
     results = []
     with gzip.open(path_alignment, "rt") as handle:
-        for record in tqdm(SeqIO.parse(handle, alignment_type)):
+
+        records = SeqIO.parse(handle, alignment_type)
+        if use_tqdm:
+            records = tqdm(records)
+
+        for record in records:
             # break
+
             name = record.name
             seq = record.seq
             result = parser.parse(name).named
             result["seq"] = str(seq)
             result["tax_id"] = d_acc2taxid[result["accession"]]
             result["taxon_accession"] = f"{result['taxon']}----{result['accession']}"
+            result["read_name"] = extract_unique_read_name(result)
             results.append(result)
 
-            update_counts_bang(
-                seq=seq,
-                strand=result["strand"],
-                damaged_positions_in_fragment=result["damaged_positions_in_fragment"],
-                k_CT=k_CT[result["tax_id"]],
-                N_C=N_C[result["tax_id"]],
-                k_GA=k_GA[result["tax_id"]],
-                N_G=N_G[result["tax_id"]],
-                max_position=max_position,
-            )
+            # ref = d_reference_sequences[result["accession"]][result["contig_num"]][
+            #     result["reference_start"] : result["reference_end"]
+            # ]
+
+            # update_d_counter_bang(
+            #     d_counter=d_counter[result["tax_id"]],
+            #     seq=seq,
+            #     ref=ref,
+            #     strand=result["strand"],
+            #     max_position=max_position,
+            # )
 
     df = pd.DataFrame(results)
 
@@ -298,33 +287,103 @@ def load_alignment_file(path_alignment, feather_file, xarray_file, max_position=
     for category in categories:
         df[category] = df[category].astype("category")
 
+    df.loc[:, "index_original"] = df.index
+
     df.to_feather(feather_file)
 
-    x = np.zeros((4, len(k_CT.keys()), 15), dtype=int)
-    for i, tax_id in enumerate(k_CT.keys()):
-        x[0, i, :] = k_CT[tax_id]
-        x[1, i, :] = N_C[tax_id]
-        x[2, i, :] = k_GA[tax_id]
-        x[3, i, :] = N_G[tax_id]
+    # mismatches = []
+    # for tax_id, d in d_counter.items():
+    #     mismatches.append(_d_counter_to_dataframe(d, tax_id))
+    # df_mismatch = pd.concat(mismatches).reset_index(drop=True)
+    # df_mismatch = fix_mismatch_df(df_mismatch)
+    # df_mismatch.to_feather(feather_file_mismatch)
 
-    da = xr.DataArray(
-        x,
-        dims=["variable", "tax_id", "pos"],
-        coords={
-            "variable": ["k_CT", "N_C", "k_GA", "N_G"],
-            "tax_id": list(k_CT.keys()),
-            "pos": 1 + np.arange(max_position),
-        },
-    )
-    da.attrs["long_name"] = path_alignment.name
-    da.to_netcdf(xarray_file)
+    # return df, df_mismatch
+    return df
 
-    return df, da
 
-    # da[0, 0, :]
-    # da.loc["k_CT"]
-    # da.loc["k_CT"][0]
-    # da.loc["k_CT"].isel(tax_id=0)
+#%%
+
+
+def load_simulation_alignment_all(
+    path_simulation_alignment_all,
+    # d_reference_sequences,
+    path_alignment_parquet,
+    simulation_methods,
+    alignment_name,
+    N_reads,
+):
+
+    df_simulation_alignment_all = {}
+
+    for sim_method in simulation_methods:
+
+        # (df_simulation_alignment, df_simulation_mismatch,) = load_simulation_alignment(
+        df_simulation_alignment = load_simulation_alignment(
+            path_simulation_alignment_all[sim_method],
+            feather_file=path_alignment_parquet
+            / f"{alignment_name}.{N_reads}.{sim_method}.feather",
+        )
+
+        df_simulation_alignment_all[sim_method] = df_simulation_alignment
+
+    return df_simulation_alignment_all
+
+
+#%%
+
+
+def load_df_metaDMG_mismatch_all(
+    path_data,
+    alignment_name,
+    N_reads,
+    simulation_methods,
+    d_sim_name_translate,
+):
+
+    df_metaDMG_mismatch_all = {}
+
+    for sim_method in simulation_methods:
+
+        sim_name = d_sim_name_translate[sim_method]
+
+        df_metaDMG_mismatch = pd.read_parquet(
+            path_data
+            / "mismatches"
+            / f"{alignment_name}__{sim_name}__{N_reads}.mismatches.parquet"
+        )
+
+        df_metaDMG_mismatch_all[sim_method] = df_metaDMG_mismatch
+
+    return df_metaDMG_mismatch_all
+
+
+#%%
+
+
+def load_df_metaDMG_results_all(
+    path_data,
+    alignment_name,
+    N_reads,
+    simulation_methods,
+    d_sim_name_translate,
+):
+
+    df_metaDMG_results_all = {}
+
+    for sim_method in simulation_methods:
+
+        sim_name = d_sim_name_translate[sim_method]
+
+        df_metaDMG_results = pd.read_parquet(
+            path_data
+            / "results"
+            / f"{alignment_name}__{sim_name}__{N_reads}.results.parquet"
+        )
+
+        df_metaDMG_results_all[sim_method] = df_metaDMG_results
+
+    return df_metaDMG_results_all
 
 
 #%%
@@ -334,27 +393,321 @@ parser_template_lca = (
     parser_template + ":{seq}:{L:Int}:{N_alignments:Int}:{GC:Float}\t{lca}"
 )
 
-parser_lca = compile(
+parser_lca = parse.compile(
     parser_template_lca,
     dict(Accession=fix_accession, Int=int, Fragment=fragment_parser, Float=float),
 )
 
 
-def read_lca_file(lca_file):
+def _read_metaDMG_lca_file(lca_file):
 
-    lca_parsed_results = defaultdict(lambda: [])
+    lca_parsed_results = []
     with gzip.open(lca_file, "rt") as a_file:
         for i, line in enumerate(a_file):
             if i == 0:
                 continue
 
+            # break
+
             stripped_line = line.strip()
             parsed_result = parser_lca.parse(stripped_line).named
-            parsed_result["tax_id"] = tax_id = d_acc2taxid[parsed_result["accession"]]
+            parsed_result["read_name"] = extract_unique_read_name(parsed_result)
+            parsed_result["tax_id_simulated"] = d_acc2taxid[parsed_result["accession"]]
 
-            lca_parsed_results[tax_id].append(parsed_result)
+            # tax_ids = [s.split(":")[0] for s in parsed_result["lca"].split("\t")]
+            # parsed_result["lca_tax_ids"] = "|".join(tax_ids)
+            tax_id_lca = int(parsed_result["lca"].split("\t")[0].split(":")[0])
+            parsed_result["tax_id_lca"] = tax_id_lca
+            del parsed_result["lca"]
 
-    return dict(lca_parsed_results)
+            lca_parsed_results.append(parsed_result)
+
+    df_lca = pd.DataFrame(lca_parsed_results)
+    df_lca.loc[:, "index_original"] = df_lca.index
+
+    categories = [
+        "sample",
+        "taxon",
+        "accession",
+        "contig_num",
+        "ancient_modern",
+        "strand",
+        "N_alignments",
+        "tax_id_simulated",
+        "tax_id_lca",
+    ]
+    for category in categories:
+        df_lca[category] = df_lca[category].astype("category")
+
+    return df_lca
+
+
+def get_lca_file_path(
+    path_data,
+    alignment_name,
+    simulation_method,
+    N_reads,
+    d_sim_name_translate,
+):
+    sim_name = d_sim_name_translate[simulation_method]
+    lca_file = path_data / "lca" / f"{alignment_name}__{sim_name}__{N_reads}.lca.txt.gz"
+    return lca_file
+
+
+def read_metaDMG_lca_file(
+    path_data,
+    alignment_name,
+    simulation_method,
+    N_reads,
+    d_sim_name_translate,
+):
+    lca_file = get_lca_file_path(
+        path_data, alignment_name, simulation_method, N_reads, d_sim_name_translate
+    )
+    df_metaDMG_mapped = _read_metaDMG_lca_file(lca_file)
+    return df_metaDMG_mapped
+
+
+def load_metaDMG_lca_file(
+    path_data,
+    alignment_name,
+    simulation_method,
+    N_reads,
+    d_sim_name_translate,
+    path_analysis_lca,
+):
+
+    filename = (
+        path_analysis_lca
+        / f"{alignment_name}.{N_reads}.{simulation_method}.lca_df.feather"
+    )
+
+    try:
+        df_metaDMG_mapped = pd.read_feather(filename)
+        return df_metaDMG_mapped
+    except FileNotFoundError:
+        pass
+
+    df_metaDMG_mapped = read_metaDMG_lca_file(
+        path_data,
+        alignment_name,
+        simulation_method,
+        N_reads,
+        d_sim_name_translate,
+    )
+
+    df_metaDMG_mapped.to_feather(filename)
+
+    return df_metaDMG_mapped
+
+
+#%%
+
+
+#%%
+
+
+def _d_counter_to_dataframe(d_counter, tax_id, max_position=15):
+    bases = ["A", "C", "G", "T"]
+    out = []
+    for pos in list(range(1, max_position + 1)) + list(
+        range(-1, -max_position - 1, -1)
+    ):
+
+        if pos > 0:
+            direction = "5'"
+        else:
+            direction = "3'"
+
+        d_tmp = {"tax_id": tax_id, "direction": direction, "position": pos}
+
+        for ref in bases:
+            for obs in bases:
+                d_tmp[ref + obs] = d_counter[(pos, ref + obs)]
+
+        out.append(d_tmp)
+    return pd.DataFrame(out)
+
+
+# def update_d_counter_bang_readname_based_old(
+#     d_counter,
+#     seq,
+#     damaged_positions_in_fragment,
+#     max_position=15,
+# ):
+
+#     seq_forward = Seq(seq)
+#     seq_reverse = Seq(seq[::-1])
+
+#     for i, base in enumerate(seq_forward):
+#         pos = i + 1
+#         ref = base
+#         if pos in damaged_positions_in_fragment:
+#             ref = "C"
+#         d_counter[(pos, ref + base)] += 1
+
+#         if pos >= max_position:
+#             break
+
+#     for i, base in enumerate(seq_reverse):
+#         pos = -(i + 1)
+#         ref = base
+#         if pos in damaged_positions_in_fragment:
+#             ref = "G"
+#         d_counter[(pos, ref + base)] += 1
+
+#         if abs(pos) >= max_position:
+#             break
+
+
+def update_d_counter_bang(
+    d_counter,
+    seq,
+    ref,
+    strand,
+    max_position=15,
+):
+
+    if strand == "-":
+        ref = ref.reverse_complement()
+
+    for i, (seq_i, ref_i) in enumerate(zip(seq, ref)):
+        pos = i + 1
+        d_counter[pos, ref_i + seq_i] += 1
+        if pos >= max_position:
+            break
+
+    for i, (seq_i, ref_i) in enumerate(zip(reversed(seq), reversed(ref))):
+        pos = -(i + 1)
+        d_counter[pos, ref_i + seq_i] += 1
+        if abs(pos) >= max_position:
+            break
+
+
+def _dataframe_single_group_to_dataframe(
+    d_reference_sequences,
+    df_tax_id,
+    tax_id,
+    max_position=15,
+):
+
+    d_counter = Counter()
+
+    for row in df_tax_id.itertuples():
+
+        seq = Seq(row.seq)
+        ref = d_reference_sequences[row.accession][row.contig_num][
+            row.reference_start : row.reference_end
+        ]
+
+        update_d_counter_bang(
+            d_counter=d_counter,
+            seq=seq,
+            ref=ref,
+            strand=row.strand,
+            # damaged_positions_in_fragment=row.damaged_positions_in_fragment,
+            max_position=max_position,
+        )
+
+    df_mismatch = _d_counter_to_dataframe(d_counter, tax_id)
+    return df_mismatch
+
+
+ACTG = ["A", "C", "G", "T"]
+
+
+def get_base_columns(df):
+    base_columns = []
+    for column in df.columns:
+        if len(column) == 2 and column[0] in ACTG and column[1] in ACTG:
+            base_columns.append(column)
+    return base_columns
+
+
+def get_reference_columns(df, ref):
+    ref_columns = []
+    for column in get_base_columns(df):
+        if column[0] == ref:
+            ref_columns.append(column)
+    return ref_columns
+
+
+def add_reference_count(df, ref):
+    reference_columns = get_reference_columns(df, ref)
+    df[ref] = df[reference_columns].sum(axis=1)
+    return df
+
+
+def compute_fraction_and_uncertainty(x, N, set_zero_to_nan=False):
+    f = x / N
+    if set_zero_to_nan:
+        f = f.mask(x == 0, np.nan)
+    sf = np.sqrt(f * (1 - f) / N)
+    return f, sf
+
+
+def compute_error_rates(df, ref, obs):
+    s_ref_obs = ref + obs
+    x = df[s_ref_obs]
+    N_ref = df[ref]
+    f, sf = compute_fraction_and_uncertainty(x, N_ref)
+    return f, sf
+
+
+def add_error_rate(df, ref, obs, include_uncertainties=False):
+    f, sf = compute_error_rates(df, ref, obs)
+    df[f"f_{ref}{obs}"] = f
+    if include_uncertainties:
+        df[f"sf_{ref}{obs}"] = sf
+    return df
+
+
+def add_k_N_x_names(df):
+    mask_forward = df.position > 0
+    df["k"] = np.where(mask_forward, df["CT"], df["GA"])
+    df["N"] = np.where(mask_forward, df["C"], df["G"])
+    df["f"] = df["k"] / df["N"]
+    df["|x|"] = np.abs(df["position"])
+    return df
+
+
+def add_N_reads(df_mismatch):
+    df_mismatch.loc[:, "N_reads"] = df_mismatch.loc[:, "AA":"TT"].sum(axis=1)
+    return df_mismatch
+
+
+def fix_mismatch_df(df_mismatch):
+    return (
+        df_mismatch.pipe(add_reference_count, ref="C")
+        .pipe(add_reference_count, ref="G")
+        .pipe(add_error_rate, ref="C", obs="T")
+        .pipe(add_error_rate, ref="G", obs="A")
+        .pipe(add_k_N_x_names)
+        .pipe(add_N_reads)
+    )
+
+
+def dataframe_to_mismatch(
+    d_reference_sequences,
+    df,
+    max_position=15,
+    tax_id_col="tax_id",
+):
+
+    mismatches = []
+    for tax_id, df_tax_id in df.groupby(tax_id_col, observed=True):
+        # break
+        df_mismatch = _dataframe_single_group_to_dataframe(
+            d_reference_sequences=d_reference_sequences,
+            df_tax_id=df_tax_id,
+            tax_id=tax_id,
+            max_position=max_position,
+        )
+        mismatches.append(df_mismatch)
+
+    df_mismatch = fix_mismatch_df(pd.concat(mismatches))
+
+    return df_mismatch
 
 
 #%%
@@ -402,7 +755,7 @@ def compute_lca_stats_min_similarity_score(
         min_similarity_scores = MIN_SIMILARITY_SCORES
 
     d_out = []
-    # min_similarity_score = 0.9
+    # min_similarity_score = 0.95
     for min_similarity_score in tqdm(min_similarity_scores):
 
         delete_temp_lca_files()
@@ -548,3 +901,395 @@ def extract_simulation_parameters(name, N_reads):
             }
         )
     return pd.DataFrame(out)
+
+
+#%%
+
+
+def load_single_genome(reference_fasta_path):
+    reference_sequence = {}
+    with gzip.open(reference_fasta_path, "rt") as handle:
+        for i, record in enumerate(SeqIO.parse(handle, "fasta")):
+            reference_sequence[f"seq-{i}"] = record.seq
+    return reference_sequence
+
+
+# def _load_reference_genomes():
+#     d_reference_sequences = {}
+#     for reference_fasta_path in Path("genomes").glob("*_genomic.fna.gz"):
+#         accession = reference_fasta_path.stem.split("_genomic.fna")[0]
+#         d_reference_sequences[accession] = load_single_genome(reference_fasta_path)
+#     return d_reference_sequences
+
+
+def _load_reference_genomes(
+    path_genome_fasta,
+    df_simulation_alignment_all,
+):
+    accessions = list(df_simulation_alignment_all["frag"]["accession"].unique())
+    d_reference_sequences = {}
+    for accession in accessions:
+        reference_fasta_path = path_genome_fasta / f"{accession}_genomic.fna.gz"
+        d_reference_sequences[accession] = load_single_genome(reference_fasta_path)
+    return d_reference_sequences
+
+
+def load_reference_genomes(
+    path_genome_fasta,
+    df_simulation_alignment_all,
+    alignment_name,
+    N_reads,
+):
+
+    outdir = Path("genomes")
+    outdir.mkdir(exist_ok=True)
+
+    filename = outdir / f"{alignment_name}.{N_reads}.reference_genomes.pkl"
+    try:
+        d_reference_sequences = joblib.load(filename)
+        return d_reference_sequences
+    except FileNotFoundError:
+        pass
+
+    d_reference_sequences = _load_reference_genomes(
+        path_genome_fasta,
+        df_simulation_alignment_all,
+    )
+    joblib.dump(d_reference_sequences, filename)
+
+    return d_reference_sequences
+
+
+#%%
+
+
+def _add_counts_to_dict_bang(d, df, name):
+    d[f"{name}) k_CT (x=1)"] = df.query("position == 1")["k"].iloc[0]
+    d[f"{name}) N_C (x=1)"] = df.query("position == 1")["N"].iloc[0]
+    d[f"{name}) f_CT (x=1)"] = df.query("position == 1")["f"].iloc[0]
+    d[f"{name}) k_GA (x=-1)"] = df.query("position == -1")["k"].iloc[0]
+    d[f"{name}) N_G (x=-1)"] = df.query("position == -1")["N"].iloc[0]
+    d[f"{name}) f_GA (x=-1)"] = df.query("position == -1")["f"].iloc[0]
+
+
+def _add_counts_to_dict_bang_empty(d, name):
+    d[f"{name}) k_CT (x=1)"] = 0
+    d[f"{name}) N_C (x=1)"] = 0
+    d[f"{name}) f_CT (x=1)"] = 0
+    d[f"{name}) k_GA (x=-1)"] = 0
+    d[f"{name}) N_G (x=-1)"] = 0
+    d[f"{name}) f_GA (x=-1)"] = 0
+
+
+def compute_mismatch_and_add_to_dict(
+    d,
+    df_in,
+    name,
+    d_reference_sequences,
+    tax_id_col,
+):
+
+    d[f"|{name}|"] = len(df_in)
+
+    if len(df_in) > 0:
+
+        df_mismatch = dataframe_to_mismatch(
+            d_reference_sequences,
+            df=df_in,
+            tax_id_col=tax_id_col,
+        )
+        _add_counts_to_dict_bang(d, df_mismatch.query("abs(position) == 1"), name)
+        return df_mismatch
+
+    else:
+        _add_counts_to_dict_bang_empty(d, name)
+        return None
+
+
+def compute_comparison(
+    df_simulation_alignment,
+    df_metaDMG_mapped,
+    df_metaDMG_mismatch,
+    df_metaDMG_results,
+    d_reference_sequences,
+    use_tqdm=False,
+):
+
+    colnames_int = [
+        "read_num",
+        "reference_start",
+        "reference_end",
+        "fragment_length",
+        "index_original",
+    ]
+    dtype = {col: "int" for col in colnames_int}
+
+    out = []
+
+    tax_ids = df_simulation_alignment.tax_id.unique()
+    if use_tqdm:
+        tax_ids = tqdm(tax_ids)
+
+    for tax_id in tax_ids:
+        # break
+
+        # tax_id = 134313  # homo
+
+        d = {
+            "tax_id": tax_id,
+            "tax_name": d_taxid2name[tax_id],
+        }
+
+        df_A = df_simulation_alignment.query(f"tax_id == {tax_id}")
+        df_A_mismatch = compute_mismatch_and_add_to_dict(
+            d=d,
+            df_in=df_A,
+            name="A",
+            d_reference_sequences=d_reference_sequences,
+            tax_id_col="tax_id",
+        )
+        df_A
+        len(df_A)
+
+        df_B = df_metaDMG_mapped.query(f"tax_id_simulated == {tax_id}")
+        df_B_mismatch = compute_mismatch_and_add_to_dict(
+            d=d,
+            df_in=df_B,
+            name="B",
+            d_reference_sequences=d_reference_sequences,
+            tax_id_col="tax_id_simulated",
+        )
+        df_B
+        len(df_B)
+
+        df_C = df_metaDMG_mapped.query(f"tax_id_lca == {tax_id}")
+        df_C_mismatch = compute_mismatch_and_add_to_dict(
+            d=d,
+            df_in=df_C,
+            name="C",
+            d_reference_sequences=d_reference_sequences,
+            tax_id_col="tax_id_lca",
+        )
+        df_C
+        len(df_C)
+
+        # in df_A, but not in df_B
+        df_A_slash_B = (
+            df_A.merge(df_B["read_name"], how="outer", indicator=True)
+            .loc[lambda x: x["_merge"] == "left_only"]
+            .drop("_merge", axis=1)
+        ).astype(dtype)
+        df_A_slash_B_mismatch = compute_mismatch_and_add_to_dict(
+            d=d,
+            df_in=df_A_slash_B,
+            name="A\B",
+            d_reference_sequences=d_reference_sequences,
+            tax_id_col="tax_id",
+        )
+        df_A_slash_B
+
+        # in df_A, but not in df_C
+        df_A_slash_C = (
+            df_A.merge(df_C["read_name"], how="outer", indicator=True)
+            .loc[lambda x: x["_merge"] == "left_only"]
+            .drop("_merge", axis=1)
+        ).astype(dtype)
+        df_A_slash_C_mismatch = compute_mismatch_and_add_to_dict(
+            d=d,
+            df_in=df_A_slash_C,
+            name="A\C",
+            d_reference_sequences=d_reference_sequences,
+            tax_id_col="tax_id",
+        )
+        df_A_slash_C
+
+        # in df_B, but not in df_C
+        df_B_slash_C = (
+            df_B.merge(df_C["read_name"], how="outer", indicator=True)
+            .loc[lambda x: x["_merge"] == "left_only"]
+            .drop("_merge", axis=1)
+        ).astype(dtype)
+        df_B_slash_C_mismatch = compute_mismatch_and_add_to_dict(
+            d=d,
+            df_in=df_B_slash_C,
+            name="B\C",
+            d_reference_sequences=d_reference_sequences,
+            tax_id_col="tax_id_simulated",
+        )
+        df_B_slash_C
+
+        # in df_C, but not in df_A
+        df_C_slash_A = (
+            df_C.merge(df_A["read_name"], how="outer", indicator=True)
+            .loc[lambda x: x["_merge"] == "left_only"]
+            .drop("_merge", axis=1)
+        ).astype(dtype)
+        df_C_slash_A_mismatch = compute_mismatch_and_add_to_dict(
+            d=d,
+            df_in=df_C_slash_A,
+            name="C\A",
+            d_reference_sequences=d_reference_sequences,
+            tax_id_col="tax_id_lca",
+        )
+        df_C_slash_A
+
+        # mismatch information from metaDMG:
+        series = df_metaDMG_results.query(f"tax_id == '{tax_id}'")
+        if len(series) > 1:
+            raise AssertionError("series should be of length 1")
+
+        elif len(series) == 1:
+            series = series.iloc[0]
+            d[f"|D|"] = series["N_reads"]
+            _add_counts_to_dict_bang(
+                d,
+                df_metaDMG_mismatch.query(f"tax_id == '{tax_id}' & abs(position) == 1"),
+                "D",
+            )
+            d["D_max"] = series["D_max"]
+            d["Bayesian_D_max"] = series["Bayesian_D_max"]
+            d["lambda_LR"] = series["lambda_LR"]
+            d["Bayesian_z"] = series["Bayesian_z"]
+
+        # if tax id not in metaDMG results
+        else:
+            d[f"|D|"] = 0
+            _add_counts_to_dict_bang_empty(d, "D")
+            d["D_max"] = np.nan
+            d["Bayesian_D_max"] = np.nan
+            d["lambda_LR"] = np.nan
+            d["Bayesian_z"] = np.nan
+
+        out.append(d)
+
+    df_comparison = pd.DataFrame(out).sort_values("|A|", ascending=False)
+    df_comparison
+
+    df_comparison.loc[:, "|B|/|A|"] = df_comparison["|B|"] / df_comparison["|A|"]
+    df_comparison.loc[:, "|C|/|B|"] = df_comparison["|C|"] / df_comparison["|B|"]
+    df_comparison.loc[:, "|C|/|A|"] = df_comparison["|C|"] / df_comparison["|A|"]
+    df_comparison.loc[:, "|C\A|/|C|"] = df_comparison["|C\A|"] / df_comparison["|C|"]
+
+    return df_comparison.reset_index(drop=True)
+
+
+def get_df_comparison(
+    df_simulation_alignment,
+    df_metaDMG_mapped,
+    df_metaDMG_mismatch,
+    df_metaDMG_results,
+    d_reference_sequences,
+    path_comparison,
+    alignment_name,
+    N_reads,
+    simulation_method,
+):
+
+    filename = (
+        path_comparison
+        / f"{alignment_name}.{N_reads}.{simulation_method}.comparison.csv"
+    )
+
+    try:
+        df_comparison = pd.read_csv(filename)
+        return df_comparison
+
+    except FileNotFoundError:
+        pass
+
+    df_comparison = compute_comparison(
+        df_simulation_alignment,
+        df_metaDMG_mapped,
+        df_metaDMG_mismatch,
+        df_metaDMG_results,
+        d_reference_sequences,
+    )
+
+    df_comparison.to_csv(filename, index=False)
+
+    return df_comparison
+
+
+#%%
+
+
+def main(p):
+
+    (
+        alignment_name,
+        N_reads,
+        simulation_method,
+        path_data,
+        path_alignment_files,
+        path_alignment_parquet,
+        path_analysis_lca,
+        path_genome_fasta,
+        path_comparison,
+        simulation_methods,
+        d_sim_name_translate,
+    ) = p
+
+    # pbar.set_description(
+    #     f"Processing sample {alignment_name}, {N_reads} reads, {simulation_method} method"
+    # )
+
+    print(
+        f"Processing sample {alignment_name}, {N_reads} reads, {simulation_method} method"
+    )
+    path_simulation_alignment_all = get_simulation_alignment_paths(
+        path_alignment_files=path_alignment_files,
+        name=alignment_name,
+        N_reads=str(N_reads),
+    )
+
+    df_simulation_alignment_all = load_simulation_alignment_all(
+        path_simulation_alignment_all,
+        path_alignment_parquet,
+        simulation_methods,
+        alignment_name,
+        N_reads,
+    )
+
+    df_metaDMG_mismatch_all = load_df_metaDMG_mismatch_all(
+        path_data,
+        alignment_name,
+        N_reads,
+        simulation_methods,
+        d_sim_name_translate,
+    )
+
+    df_metaDMG_results_all = load_df_metaDMG_results_all(
+        path_data,
+        alignment_name,
+        N_reads,
+        simulation_methods,
+        d_sim_name_translate,
+    )
+
+    df_metaDMG_mapped = load_metaDMG_lca_file(
+        path_data,
+        alignment_name,
+        simulation_method,
+        N_reads,
+        d_sim_name_translate,
+        path_analysis_lca,
+    )
+
+    d_reference_sequences = load_reference_genomes(
+        path_genome_fasta,
+        df_simulation_alignment_all,
+        alignment_name,
+        N_reads,
+    )
+
+    df_comparison = get_df_comparison(
+        df_simulation_alignment=df_simulation_alignment_all[simulation_method],
+        df_metaDMG_mapped=df_metaDMG_mapped,
+        df_metaDMG_mismatch=df_metaDMG_mismatch_all[simulation_method],
+        df_metaDMG_results=df_metaDMG_results_all[simulation_method],
+        d_reference_sequences=d_reference_sequences,
+        path_comparison=path_comparison,
+        alignment_name=alignment_name,
+        N_reads=N_reads,
+        simulation_method=simulation_method,
+    )
