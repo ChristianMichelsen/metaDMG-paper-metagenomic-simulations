@@ -154,6 +154,7 @@ def propername(name):
 
 
 d_acc2taxid = get_key2val_dict(df_acc2taxid, "accession", "taxid")
+d_taxid2acc = get_key2val_dict(df_acc2taxid, "taxid", "accession")
 d_taxid2name = get_key2val_dict(df_names, "tax_id", "name_txt")
 
 
@@ -310,7 +311,7 @@ def load_simulation_alignment_all(
     # d_reference_sequences,
     path_alignment_parquet,
     simulation_methods,
-    alignment_name,
+    sample,
     N_reads,
 ):
 
@@ -322,7 +323,7 @@ def load_simulation_alignment_all(
         df_simulation_alignment = load_simulation_alignment(
             path_simulation_alignment_all[sim_method],
             feather_file=path_alignment_parquet
-            / f"{alignment_name}.{N_reads}.{sim_method}.feather",
+            / f"{sample}.{N_reads}.{sim_method}.feather",
         )
 
         df_simulation_alignment_all[sim_method] = df_simulation_alignment
@@ -335,7 +336,7 @@ def load_simulation_alignment_all(
 
 def load_df_metaDMG_mismatch_all(
     path_data,
-    alignment_name,
+    sample,
     N_reads,
     simulation_methods,
     d_sim_name_translate,
@@ -350,7 +351,7 @@ def load_df_metaDMG_mismatch_all(
         df_metaDMG_mismatch = pd.read_parquet(
             path_data
             / "mismatches"
-            / f"{alignment_name}__{sim_name}__{N_reads}.mismatches.parquet"
+            / f"{sample}__{sim_name}__{N_reads}.mismatches.parquet"
         )
 
         df_metaDMG_mismatch_all[sim_method] = df_metaDMG_mismatch
@@ -363,7 +364,7 @@ def load_df_metaDMG_mismatch_all(
 
 def load_df_metaDMG_results_all(
     path_data,
-    alignment_name,
+    sample,
     N_reads,
     simulation_methods,
     d_sim_name_translate,
@@ -376,9 +377,7 @@ def load_df_metaDMG_results_all(
         sim_name = d_sim_name_translate[sim_method]
 
         df_metaDMG_results = pd.read_parquet(
-            path_data
-            / "results"
-            / f"{alignment_name}__{sim_name}__{N_reads}.results.parquet"
+            path_data / "results" / f"{sample}__{sim_name}__{N_reads}.results.parquet"
         )
 
         df_metaDMG_results_all[sim_method] = df_metaDMG_results
@@ -444,25 +443,25 @@ def _read_metaDMG_lca_file(lca_file):
 
 def get_lca_file_path(
     path_data,
-    alignment_name,
+    sample,
     simulation_method,
     N_reads,
     d_sim_name_translate,
 ):
     sim_name = d_sim_name_translate[simulation_method]
-    lca_file = path_data / "lca" / f"{alignment_name}__{sim_name}__{N_reads}.lca.txt.gz"
+    lca_file = path_data / "lca" / f"{sample}__{sim_name}__{N_reads}.lca.txt.gz"
     return lca_file
 
 
 def read_metaDMG_lca_file(
     path_data,
-    alignment_name,
+    sample,
     simulation_method,
     N_reads,
     d_sim_name_translate,
 ):
     lca_file = get_lca_file_path(
-        path_data, alignment_name, simulation_method, N_reads, d_sim_name_translate
+        path_data, sample, simulation_method, N_reads, d_sim_name_translate
     )
     df_metaDMG_mapped = _read_metaDMG_lca_file(lca_file)
     return df_metaDMG_mapped
@@ -470,7 +469,7 @@ def read_metaDMG_lca_file(
 
 def load_metaDMG_lca_file(
     path_data,
-    alignment_name,
+    sample,
     simulation_method,
     N_reads,
     d_sim_name_translate,
@@ -478,8 +477,7 @@ def load_metaDMG_lca_file(
 ):
 
     filename = (
-        path_analysis_lca
-        / f"{alignment_name}.{N_reads}.{simulation_method}.lca_df.feather"
+        path_analysis_lca / f"{sample}.{N_reads}.{simulation_method}.lca_df.feather"
     )
 
     try:
@@ -490,7 +488,7 @@ def load_metaDMG_lca_file(
 
     df_metaDMG_mapped = read_metaDMG_lca_file(
         path_data,
-        alignment_name,
+        sample,
         simulation_method,
         N_reads,
         d_sim_name_translate,
@@ -937,14 +935,14 @@ def _load_reference_genomes(
 def load_reference_genomes(
     path_genome_fasta,
     df_simulation_alignment_all,
-    alignment_name,
+    sample,
     N_reads,
 ):
 
     outdir = Path("genomes")
     outdir.mkdir(exist_ok=True)
 
-    filename = outdir / f"{alignment_name}.{N_reads}.reference_genomes.pkl"
+    filename = outdir / f"{sample}.{N_reads}.reference_genomes.pkl"
     try:
         d_reference_sequences = joblib.load(filename)
         return d_reference_sequences
@@ -1173,6 +1171,83 @@ def compute_comparison(
     return df_comparison.reset_index(drop=True)
 
 
+#%%
+
+
+def add_simulation_information_to_df_comparison(
+    df_comparison,
+    sample,
+    N_reads,
+    simulation_method,
+):
+
+    df_comparison.loc[:, "sample"] = sample
+    df_comparison.loc[:, "N_reads"] = N_reads
+    df_comparison.loc[:, "simulation_method"] = simulation_method
+
+    prefix = Path("input-data") / "data-pre-mapping" / sample / "single" / str(N_reads)
+
+    df_communities_read_abundances = pd.read_csv(
+        prefix / f"{sample}.communities_read-abundances.tsv",
+        sep="\t",
+    )
+    df_genome_compositions = pd.read_csv(
+        prefix / f"{sample}.genome-compositions.tsv",
+        sep="\t",
+    )
+
+    df_file_paths = pd.read_csv(
+        prefix / f"{sample}.filepaths.tsv",
+        sep="\t",
+    )
+
+    d_tax_id_to_taxon = get_key2val_dict(df_file_paths, "TaxId", "Taxon")
+
+    tmp = []
+
+    for tax_id in df_comparison["tax_id"]:
+        # df_comparison.query(f"tax_id == {tax_id}")
+
+        taxon = d_tax_id_to_taxon[tax_id]
+
+        d_tmp = {"tax_id": tax_id}
+
+        series1 = df_communities_read_abundances.query(f"taxon == '{taxon}'")
+        assert len(series1) == 2
+
+        d_tmp["simulated_seq_depth_ancient"] = series1.query(
+            "frag_type == 'ancient'"
+        ).iloc[0]["seq_depth"]
+        d_tmp["simulated_seq_depth_modern"] = series1.query(
+            "frag_type == 'modern'"
+        ).iloc[0]["seq_depth"]
+
+        series2 = df_genome_compositions.query(f"Taxon == '{taxon}'")
+        assert len(series2) == 1
+        series2 = series2.iloc[0]
+
+        d_tmp["simulated_only_ancient"] = series2.onlyAncient
+        d_tmp["simulated_D_max"] = series2.D_max
+
+        tmp.append(d_tmp)
+
+    df_tmp = pd.DataFrame(tmp)
+
+    return pd.merge(df_comparison, df_tmp, on="tax_id")
+
+
+#%%
+
+
+def get_df_comparison_path(path_comparison, sample, N_reads, simulation_method):
+
+    filename = (
+        path_comparison / f"{sample}.{N_reads}.{simulation_method}.comparison.csv"
+    )
+
+    return filename
+
+
 def get_df_comparison(
     df_simulation_alignment,
     df_metaDMG_mapped,
@@ -1180,14 +1255,16 @@ def get_df_comparison(
     df_metaDMG_results,
     d_reference_sequences,
     path_comparison,
-    alignment_name,
+    sample,
     N_reads,
     simulation_method,
 ):
 
-    filename = (
-        path_comparison
-        / f"{alignment_name}.{N_reads}.{simulation_method}.comparison.csv"
+    filename = get_df_comparison_path(
+        path_comparison,
+        sample,
+        N_reads,
+        simulation_method,
     )
 
     try:
@@ -1205,9 +1282,21 @@ def get_df_comparison(
         d_reference_sequences,
     )
 
-    df_comparison.to_csv(filename, index=False)
+    df_comparison = add_simulation_information_to_df_comparison(
+        df_comparison,
+        sample,
+        N_reads,
+        simulation_method,
+    )
 
-    return df_comparison
+    try:
+        filename.parent.mkdir(exist_ok=True)
+        # print(f"Saving: {filename}")
+        df_comparison.to_csv(filename, index=False)
+        return df_comparison
+
+    except OSError:
+        print(f"Error saving {filename}")
 
 
 #%%
@@ -1216,7 +1305,7 @@ def get_df_comparison(
 def main(p):
 
     (
-        alignment_name,
+        sample,
         N_reads,
         simulation_method,
         path_data,
@@ -1230,15 +1319,22 @@ def main(p):
     ) = p
 
     # pbar.set_description(
-    #     f"Processing sample {alignment_name}, {N_reads} reads, {simulation_method} method"
+    #     f"Processing sample {sample}, {N_reads} reads, {simulation_method} method"
     # )
 
-    print(
-        f"Processing sample {alignment_name}, {N_reads} reads, {simulation_method} method"
+    filename_comparison = get_df_comparison_path(
+        path_comparison,
+        sample,
+        N_reads,
+        simulation_method,
     )
+    if filename_comparison.exists():
+        return None
+
+    print(f"Processing sample {sample}, {N_reads} reads, {simulation_method} method")
     path_simulation_alignment_all = get_simulation_alignment_paths(
         path_alignment_files=path_alignment_files,
-        name=alignment_name,
+        name=sample,
         N_reads=str(N_reads),
     )
 
@@ -1246,13 +1342,13 @@ def main(p):
         path_simulation_alignment_all,
         path_alignment_parquet,
         simulation_methods,
-        alignment_name,
+        sample,
         N_reads,
     )
 
     df_metaDMG_mismatch_all = load_df_metaDMG_mismatch_all(
         path_data,
-        alignment_name,
+        sample,
         N_reads,
         simulation_methods,
         d_sim_name_translate,
@@ -1260,7 +1356,7 @@ def main(p):
 
     df_metaDMG_results_all = load_df_metaDMG_results_all(
         path_data,
-        alignment_name,
+        sample,
         N_reads,
         simulation_methods,
         d_sim_name_translate,
@@ -1268,7 +1364,7 @@ def main(p):
 
     df_metaDMG_mapped = load_metaDMG_lca_file(
         path_data,
-        alignment_name,
+        sample,
         simulation_method,
         N_reads,
         d_sim_name_translate,
@@ -1278,7 +1374,7 @@ def main(p):
     d_reference_sequences = load_reference_genomes(
         path_genome_fasta,
         df_simulation_alignment_all,
-        alignment_name,
+        sample,
         N_reads,
     )
 
@@ -1289,7 +1385,7 @@ def main(p):
         df_metaDMG_results=df_metaDMG_results_all[simulation_method],
         d_reference_sequences=d_reference_sequences,
         path_comparison=path_comparison,
-        alignment_name=alignment_name,
+        sample=sample,
         N_reads=N_reads,
         simulation_method=simulation_method,
     )

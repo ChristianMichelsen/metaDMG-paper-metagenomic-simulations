@@ -18,10 +18,11 @@ import utils
 
 #%%
 
-
-MAX_WORKERS = 4
+MAX_WORKERS = 20
 
 is_mac = platform.system() == "Darwin"
+if is_mac:
+    MAX_WORKERS = 1
 
 
 path_data = Path("data")
@@ -79,11 +80,11 @@ if is_mac:
 
 # reload(utils)
 
-alignment_name = "Pitch-6"
+sample = "Pitch-6"
 N_reads = 1_000_000
 simulation_method = "deam"
 
-# alignment_name = "Lake-9"
+# sample = "Lake-9"
 # N_reads = 1_000_000
 # simulation_method = "frag"
 
@@ -105,10 +106,10 @@ if is_mac:
 
 
 inputs = []
-for (alignment_name, N_reads, simulation_method) in _inputs:
+for (sample, N_reads, simulation_method) in _inputs:
     inputs.append(
         (
-            alignment_name,
+            sample,
             N_reads,
             simulation_method,
             path_data,
@@ -125,15 +126,20 @@ for (alignment_name, N_reads, simulation_method) in _inputs:
 
 if __name__ == "__main__":
 
-    with mp.Pool(processes=MAX_WORKERS) as pool:
-        results = tqdm(
-            pool.imap_unordered(utils.main, inputs),
-            total=len(inputs),
-        )  # 'total' is redundant here but can be useful
-        # when the size of the iterable is unobvious
+    if MAX_WORKERS == 1:
+        for p in tqdm(inputs):
+            utils.main(p)
 
-        for result in results:
-            pass
+    else:
+        with mp.Pool(processes=MAX_WORKERS) as pool:
+            results = tqdm(
+                pool.imap_unordered(utils.main, inputs),
+                total=len(inputs),
+            )  # 'total' is redundant here but can be useful
+            # when the size of the iterable is unobvious
+
+            for result in results:
+                pass
 
 
 #%%

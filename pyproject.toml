@@ -38,6 +38,8 @@ eccodes = "^1.4.2"
 ecmwflibs = "^0.4.17"
 plotly = "^5.10.0"
 joblib = "^1.1.0"
+SciencePlots = "^1.0.9"
+engineering-notation = "^0.6.0"
 
 
 [tool.poetry.group.dev.dependencies]

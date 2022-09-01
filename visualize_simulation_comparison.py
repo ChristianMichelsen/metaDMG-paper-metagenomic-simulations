@@ -1,11 +1,20 @@
 #%%
+from importlib import reload
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import parse
 import plotly.express as px
 import plotly.graph_objects as go
+from tqdm import tqdm
+
+import plot_utils
+import utils
+
+# reload(plot_utils)
+
 
 #%%
 
@@ -20,13 +29,48 @@ def get_sample_N_reads_simulation_method(path):
     return d["sample"], d["N_reads"], d["sim_name"]
 
 
-for path in Path("data/analysis_comparison").glob("*.csv"):
-    sample, N_reads, simulation_method = get_sample_N_reads_simulation_method(path)
+def load_df_comparisons():
 
-    df_comparison = pd.read_csv(path)
+    paths = list(Path("data/analysis_comparison").glob("*.csv"))
+
+    dfs = []
+    for path in paths:
+        # break
+
+        sample, N_reads, simulation_method = get_sample_N_reads_simulation_method(path)
+
+        df_comparison = pd.read_csv(path)
+
+        dfs.append(df_comparison)
+
+    dfs = pd.concat(dfs).sort_values(
+        by=["sample", "N_reads", "simulation_method", "|A|"],
+        ascending=[True, True, False, False],
+    )
+
+    return dfs
+
+
+df_comparisons = load_df_comparisons()
 
 
 #%%
+
+x = x
+
+
+#%%
+
+
+reload(plot_utils)
+
+groups = df_comparisons.groupby(by=["sample", "N_reads", "simulation_method"])
+for (sample, N_reads, simulation_method), df_comparison in tqdm(groups):
+    plot_utils.plot_df_comparison_plt(df_comparison, sample, N_reads, simulation_method)
+
+
+#%%
+
 
 #%%
 
@@ -70,16 +114,16 @@ fig_A_C.show()
 fig_CT_mismatch_vs_C = px.scatter(
     df_comparison,
     x="C) f_CT (x=1)",
-    y="mismatch) f_CT (x=1)",
+    y="D) f_CT (x=1)",
     hover_data=[
         "tax_name",
         "tax_id",
         "C) k_CT (x=1)",
         "C) N_C (x=1)",
-        "mismatch) k_CT (x=1)",
-        "mismatch) N_C (x=1)",
+        "D) k_CT (x=1)",
+        "D) N_C (x=1)",
     ],
-    title="C->T: mismatch vs C",
+    title="C->T: D vs C",
 )
 fig_CT_mismatch_vs_C.add_trace(px.line(y=[0, 1]).data[0])
 
@@ -101,7 +145,7 @@ fig_CT_mismatch_vs_C.show()
 
 
 # Build figure
-fig_CT_pipeline = go.Figure()
+fig_comparison_CT = go.Figure()
 
 kwargs = dict(
     mode="markers",
@@ -119,7 +163,7 @@ _ = [
     ("C", "C) f_CT (x=1)", "#00B050", "diamond"),
     ("A\B", "A\B) f_CT (x=1)", "#802540", "hexagon"),
     ("B\C", "B\C) f_CT (x=1)", "#00859B", "star-square"),
-    ("mismatch", "mismatch) f_CT (x=1)", "#FFC000", "star"),
+    ("D", "D) f_CT (x=1)", "#FFC000", "star"),
 ]
 
 for (name, variable, color, symbol) in _:
@@ -135,7 +179,7 @@ for (name, variable, color, symbol) in _:
     ).T
 
     # Add scatter trace with medium sized markers
-    fig_CT_pipeline.add_trace(
+    fig_comparison_CT.add_trace(
         go.Scatter(
             x=df_comparison["|A|"],
             y=100 * df_comparison[variable],
@@ -168,9 +212,9 @@ for (name, variable, color, symbol) in _:
         )
     )
 
-fig_CT_pipeline.update_xaxes(type="log")
+fig_comparison_CT.update_xaxes(type="log")
 
-fig_CT_pipeline.update_layout(
+fig_comparison_CT.update_layout(
     title=f"{sample}, {N_reads} reads: f_CT (x=1)",
     xaxis_title="|A|",
     yaxis_title="f_CT (x=1)",
@@ -180,8 +224,101 @@ fig_CT_pipeline.update_layout(
 )
 
 
-fig_CT_pipeline.show()
+fig_comparison_CT.show()
 
-fig_CT_pipeline.write_html("file.html")
+fig_name = (
+    Path("figures") / f"{sample}.{N_reads}.{simulation_method}.comparison-CT.html"
+)
+fig_comparison_CT.write_html(fig_name)
+
+# %%
+
+
+# Build figure
+fig_comparison_GA = go.Figure()
+
+kwargs = dict(
+    mode="markers",
+    # marker_size=10,
+    # marker_line_color="black",
+    marker_line_color="lightgrey",
+    marker_line_width=0.5,
+    showlegend=True,
+)
+
+
+_ = [
+    ("A", "A) f_GA (x=-1)", "#C00000 ", "circle"),
+    ("B", "B) f_GA (x=-1)", "#0070C0", "square"),
+    ("C", "C) f_GA (x=-1)", "#00B050", "diamond"),
+    ("A\B", "A\B) f_GA (x=-1)", "#802540", "hexagon"),
+    ("B\C", "B\C) f_GA (x=-1)", "#00859B", "star-square"),
+    ("D", "D) f_GA (x=-1)", "#FFC000", "star"),
+]
+
+for (name, variable, color, symbol) in _:
+
+    customdata = np.stack(
+        (
+            df_comparison["tax_id"],
+            df_comparison["tax_name"],
+            df_comparison[f"|{name}|"],
+            df_comparison[f"{name}) k_GA (x=-1)"],
+            df_comparison[f"{name}) N_G (x=-1)"],
+        )
+    ).T
+
+    # Add scatter trace with medium sized markers
+    fig_comparison_GA.add_trace(
+        go.Scatter(
+            x=df_comparison["|A|"],
+            y=100 * df_comparison[variable],
+            name=name,
+            marker_color=color,
+            marker_symbol=symbol,
+            marker_size=1 + 2 * np.log(1 + df_comparison[f"|{name}|"]),
+            customdata=customdata,
+            hovertemplate=""
+            + "<br>"
+            + "Tax ID = %{customdata[0]}"
+            + "<br>"
+            + "Tax name = %{customdata[1]}"
+            + "<br>"
+            + "<br>"
+            + f"|{name}| "
+            + "= %{customdata[2]}"
+            + "<br>"
+            + f"{name}) "
+            + "k_GA (x=-1) = %{customdata[3]}"
+            + "<br>"
+            + f"{name}) "
+            + "N_G (x=-1) = %{customdata[4]}"
+            + "<br>"
+            + f"{name}) "
+            + "f_GA (x=-1) = %{y:.1f}%"
+            + "<br>",
+            # + "<extra></extra>",
+            **kwargs,
+        )
+    )
+
+fig_comparison_GA.update_xaxes(type="log")
+
+fig_comparison_GA.update_layout(
+    title=f"{sample}, {N_reads} reads: f_GA (x=-1)",
+    xaxis_title="|A|",
+    yaxis_title="f_GA (x=-1)",
+    autosize=True,
+    width=1600 / 1.5,
+    height=900 / 1.5,
+)
+
+
+fig_comparison_GA.show()
+
+fig_name = (
+    Path("figures") / f"{sample}.{N_reads}.{simulation_method}.comparison-GA.html"
+)
+fig_comparison_GA.write_html(fig_name)
 
 # %%
