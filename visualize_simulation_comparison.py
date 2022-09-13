@@ -31,7 +31,7 @@ def get_sample_N_reads_simulation_method(path):
 
 def load_df_comparisons():
 
-    paths = list(Path("data/analysis_comparison").glob("*.csv"))
+    paths = sorted(Path("data/analysis_comparison").glob("*.csv"))
 
     dfs = []
     for path in paths:
@@ -39,16 +39,61 @@ def load_df_comparisons():
 
         sample, N_reads, simulation_method = get_sample_N_reads_simulation_method(path)
 
-        df_comparison = pd.read_csv(path)
+        df_comparison = pd.read_csv(path).rename(
+            columns={"N_reads": "N_reads_simulated"}
+        )
+
+        try:
+
+            df_metaDMG_results = (
+                utils.load_df_metaDMG_results_all(
+                    sample,
+                    N_reads,
+                    simulation_methods=[simulation_method],
+                )[simulation_method]
+                .rename(columns={"sample": "sample_name"})
+                .astype({"tax_id": int})
+            )
+
+        except FileNotFoundError:
+            continue
+
+        if not (
+            "Bayesian_D_max_confidence_interval_1_sigma_low"
+            in df_metaDMG_results.columns
+        ):
+            raise AssertionError("Expected this file to be found")
+
+        drop_cols = [
+            "tax_name",
+            "D_max",
+            "Bayesian_D_max",
+            "lambda_LR",
+            "Bayesian_z",
+        ]
+
+        if "f-15" in df_metaDMG_results.columns:
+            drop_cols.extend(df_metaDMG_results.loc[:, "k+1":"f-15"].columns)
+        else:
+            drop_cols.extend(df_metaDMG_results.loc[:, "k+1":"f+15"].columns)
+
+        tmp = df_metaDMG_results.drop(columns=drop_cols)
+        df_comparison = pd.merge(df_comparison, tmp, on="tax_id")
 
         dfs.append(df_comparison)
 
     dfs = pd.concat(dfs).sort_values(
-        by=["sample", "N_reads", "simulation_method", "|A|"],
+        by=["sample", "N_reads_simulated", "simulation_method", "|A|"],
         ascending=[True, True, False, False],
     )
 
     return dfs
+
+
+# x=x
+
+
+#%%
 
 
 df_comparisons = load_df_comparisons()
@@ -58,16 +103,51 @@ df_comparisons = load_df_comparisons()
 
 x = x
 
-
 #%%
 
 
 reload(plot_utils)
 
-groups = df_comparisons.groupby(by=["sample", "N_reads", "simulation_method"])
-for (sample, N_reads, simulation_method), df_comparison in tqdm(groups):
-    plot_utils.plot_df_comparison_plt(df_comparison, sample, N_reads, simulation_method)
+plot_utils.plot_comparison_across_N_reads_simulated_and_sim_method(
+    df_comparisons,
+    use_bayesian=True,
+)
+plot_utils.plot_comparison_across_N_reads_simulated_and_sim_method(
+    df_comparisons,
+    use_bayesian=False,
+)
 
+
+#%%
+
+# reload(plot_utils)
+
+groups = df_comparisons.groupby(by=["sample", "N_reads_simulated", "simulation_method"])
+for (sample, N_reads_simulated, simulation_method), df_comparison in tqdm(groups):
+    plot_utils.plot_df_comparison_plt(
+        df_comparison, sample, N_reads_simulated, simulation_method
+    )
+
+
+#%%
+
+#%%
+
+# cols = [
+#     "N_reads",
+#     "simulation_method",
+#     "|A|",
+#     "simulated_D_max",
+#     "Bayesian_D_max",
+#     "Bayesian_D_max_std",
+#     "D_max",
+#     "D_max_std",
+# ]
+
+
+x = x
+
+#%%
 
 #%%
 

@@ -13,6 +13,19 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from tqdm import tqdm
 
+#%%
+
+PATH_DATA = Path("data")
+
+
+D_SIM_NAME_TRANSLATE = {
+    "frag": "fragSim",
+    "deam": "deamSim",
+    "art": "art",
+}
+
+#%%
+
 
 def nth_repl(s, old, new, n):
     """helper function to find the nth occurrence of a substring `old` in the
@@ -182,12 +195,18 @@ def get_simulation_alignment_paths(path_alignment_files, name, N_reads):
 #%%
 
 
-def fix_sim_name(sim_name, d_sim_name_translate):
+def fix_sim_name(
+    sim_name,
+    d_sim_name_translate=D_SIM_NAME_TRANSLATE,
+):
     d_translate = {value: key for key, value in d_sim_name_translate.items()}
     return d_translate[sim_name]
 
 
-def get_sample_N_reads_simulation_method(path_data, d_sim_name_translate):
+def get_sample_N_reads_simulation_method(
+    path_data=PATH_DATA,
+    d_sim_name_translate=D_SIM_NAME_TRANSLATE,
+):
 
     parser_results_path = parse.compile(
         "{sample}__{sim_name:SimName}__{N_reads:Int}.results",
@@ -221,6 +240,7 @@ def load_simulation_alignment(
     feather_file,
     max_position=15,
     use_tqdm=False,
+    fix_forward=True,
 ):
 
     # feather_file_mismatch = str(feather_file).replace(".feather", ".mismatch.feather")
@@ -240,6 +260,9 @@ def load_simulation_alignment(
         alignment_type = "fasta"
     else:
         raise AssertionError(f"Unknown alignment type: {path_alignment.suffix}")
+
+    if fix_forward and "-forward" in path_alignment.name:
+        path_alignment = Path(str(path_alignment).replace("-forward", ""))
 
     d_counter = defaultdict(lambda: Counter())
     results = []
@@ -308,7 +331,6 @@ def load_simulation_alignment(
 
 def load_simulation_alignment_all(
     path_simulation_alignment_all,
-    # d_reference_sequences,
     path_alignment_parquet,
     simulation_methods,
     sample,
@@ -335,11 +357,11 @@ def load_simulation_alignment_all(
 
 
 def load_df_metaDMG_mismatch_all(
-    path_data,
     sample,
     N_reads,
     simulation_methods,
-    d_sim_name_translate,
+    path_data=PATH_DATA,
+    d_sim_name_translate=D_SIM_NAME_TRANSLATE,
 ):
 
     df_metaDMG_mismatch_all = {}
@@ -363,11 +385,11 @@ def load_df_metaDMG_mismatch_all(
 
 
 def load_df_metaDMG_results_all(
-    path_data,
     sample,
     N_reads,
     simulation_methods,
-    d_sim_name_translate,
+    path_data=PATH_DATA,
+    d_sim_name_translate=D_SIM_NAME_TRANSLATE,
 ):
 
     df_metaDMG_results_all = {}
@@ -442,11 +464,11 @@ def _read_metaDMG_lca_file(lca_file):
 
 
 def get_lca_file_path(
-    path_data,
     sample,
     simulation_method,
     N_reads,
-    d_sim_name_translate,
+    path_data=PATH_DATA,
+    d_sim_name_translate=D_SIM_NAME_TRANSLATE,
 ):
     sim_name = d_sim_name_translate[simulation_method]
     lca_file = path_data / "lca" / f"{sample}__{sim_name}__{N_reads}.lca.txt.gz"
@@ -454,26 +476,30 @@ def get_lca_file_path(
 
 
 def read_metaDMG_lca_file(
-    path_data,
     sample,
     simulation_method,
     N_reads,
-    d_sim_name_translate,
+    path_data=PATH_DATA,
+    d_sim_name_translate=D_SIM_NAME_TRANSLATE,
 ):
     lca_file = get_lca_file_path(
-        path_data, sample, simulation_method, N_reads, d_sim_name_translate
+        sample,
+        simulation_method,
+        N_reads,
+        path_data,
+        d_sim_name_translate,
     )
     df_metaDMG_mapped = _read_metaDMG_lca_file(lca_file)
     return df_metaDMG_mapped
 
 
 def load_metaDMG_lca_file(
-    path_data,
     sample,
     simulation_method,
     N_reads,
-    d_sim_name_translate,
     path_analysis_lca,
+    path_data=PATH_DATA,
+    d_sim_name_translate=D_SIM_NAME_TRANSLATE,
 ):
 
     filename = (
@@ -487,10 +513,10 @@ def load_metaDMG_lca_file(
         pass
 
     df_metaDMG_mapped = read_metaDMG_lca_file(
-        path_data,
         sample,
         simulation_method,
         N_reads,
+        path_data,
         d_sim_name_translate,
     )
 
@@ -859,46 +885,46 @@ def load_genome_composition(name, N_reads):
 #%%
 
 
-def extract_simulation_parameters(name, N_reads):
+# def extract_simulation_parameters(name, N_reads):
 
-    df_communities_read_abundances = load_communities_read_abundances(name, N_reads)
-    df_genome_composition = load_genome_composition(name, N_reads)
+#     df_communities_read_abundances = load_communities_read_abundances(name, N_reads)
+#     df_genome_composition = load_genome_composition(name, N_reads)
 
-    out = []
-    for (taxon_accession, _df) in df_communities_read_abundances.groupby(
-        "taxon", sort=False
-    ):
-        # break
-        assert len(_df) == 2
+#     out = []
+#     for (taxon_accession, _df) in df_communities_read_abundances.groupby(
+#         "taxon", sort=False
+#     ):
+#         # break
+#         assert len(_df) == 2
 
-        taxon, accession = taxon_accession.split("----")
-        tax_id = d_acc2taxid[accession]
+#         taxon, accession = taxon_accession.split("----")
+#         tax_id = d_acc2taxid[accession]
 
-        seq_depth_ancient = _df.query("frag_type == 'ancient'").iloc[0]["seq_depth"]
-        seq_depth_modern = _df.query("frag_type == 'modern'").iloc[0]["seq_depth"]
+#         seq_depth_ancient = _df.query("frag_type == 'ancient'").iloc[0]["seq_depth"]
+#         seq_depth_modern = _df.query("frag_type == 'modern'").iloc[0]["seq_depth"]
 
-        s_genome_composition = df_genome_composition.query(
-            f"Taxon == '{taxon_accession}'"
-        )
-        assert len(s_genome_composition) == 1
-        s_genome_composition = s_genome_composition.iloc[0]
-        only_ancient = s_genome_composition["onlyAncient"]
-        D_max_simulation = s_genome_composition["D_max"]
+#         s_genome_composition = df_genome_composition.query(
+#             f"Taxon == '{taxon_accession}'"
+#         )
+#         assert len(s_genome_composition) == 1
+#         s_genome_composition = s_genome_composition.iloc[0]
+#         only_ancient = s_genome_composition["onlyAncient"]
+#         D_max_simulation = s_genome_composition["D_max"]
 
-        out.append(
-            {
-                "tax_id": tax_id,
-                "taxon": taxon,
-                "accession": accession,
-                "seq_depth_ancient": seq_depth_ancient,
-                "seq_depth_modern": seq_depth_modern,
-                "fraction_ancient": seq_depth_ancient
-                / (seq_depth_ancient + seq_depth_modern),
-                "only_ancient": only_ancient,
-                "D_max_simulation": D_max_simulation,
-            }
-        )
-    return pd.DataFrame(out)
+#         out.append(
+#             {
+#                 "tax_id": tax_id,
+#                 "taxon": taxon,
+#                 "accession": accession,
+#                 "seq_depth_ancient": seq_depth_ancient,
+#                 "seq_depth_modern": seq_depth_modern,
+#                 "fraction_ancient": seq_depth_ancient
+#                 / (seq_depth_ancient + seq_depth_modern),
+#                 "only_ancient": only_ancient,
+#                 "D_max_simulation": D_max_simulation,
+#             }
+#         )
+#     return pd.DataFrame(out)
 
 
 #%%
@@ -962,12 +988,16 @@ def load_reference_genomes(
 
 
 def _add_counts_to_dict_bang(d, df, name):
-    d[f"{name}) k_CT (x=1)"] = df.query("position == 1")["k"].iloc[0]
-    d[f"{name}) N_C (x=1)"] = df.query("position == 1")["N"].iloc[0]
-    d[f"{name}) f_CT (x=1)"] = df.query("position == 1")["f"].iloc[0]
-    d[f"{name}) k_GA (x=-1)"] = df.query("position == -1")["k"].iloc[0]
-    d[f"{name}) N_G (x=-1)"] = df.query("position == -1")["N"].iloc[0]
-    d[f"{name}) f_GA (x=-1)"] = df.query("position == -1")["f"].iloc[0]
+    df_forward = df.query("position == 1")
+    d[f"{name}) k_CT (x=1)"] = df_forward["k"].iloc[0]
+    d[f"{name}) N_C (x=1)"] = df_forward.query("position == 1")["N"].iloc[0]
+    d[f"{name}) f_CT (x=1)"] = df_forward.query("position == 1")["f"].iloc[0]
+
+    df_reverse = df.query("position == -1")
+    if len(df_reverse) > 0:
+        d[f"{name}) k_GA (x=-1)"] = df_reverse["k"].iloc[0]
+        d[f"{name}) N_G (x=-1)"] = df_reverse.query("position == -1")["N"].iloc[0]
+        d[f"{name}) f_GA (x=-1)"] = df_reverse.query("position == -1")["f"].iloc[0]
 
 
 def _add_counts_to_dict_bang_empty(d, name):
@@ -1179,12 +1209,17 @@ def add_simulation_information_to_df_comparison(
     sample,
     N_reads,
     simulation_method,
+    N_reads_col="N_reads",
 ):
 
-    df_comparison.loc[:, "sample"] = sample
-    df_comparison.loc[:, "N_reads"] = N_reads
-    df_comparison.loc[:, "simulation_method"] = simulation_method
+    df = df_comparison.copy()
 
+    df.loc[:, "sample"] = sample
+    df.loc[:, N_reads_col] = N_reads
+    df.loc[:, "simulation_method"] = simulation_method
+
+    if "-forward" in sample:
+        sample = sample.replace("-forward", "")
     prefix = Path("input-data") / "data-pre-mapping" / sample / "single" / str(N_reads)
 
     df_communities_read_abundances = pd.read_csv(
@@ -1205,35 +1240,39 @@ def add_simulation_information_to_df_comparison(
 
     tmp = []
 
-    for tax_id in df_comparison["tax_id"]:
-        # df_comparison.query(f"tax_id == {tax_id}")
+    for tax_id in df["tax_id"]:
+        # df.query(f"tax_id == {tax_id}")
 
-        taxon = d_tax_id_to_taxon[tax_id]
+        try:
+            taxon = d_tax_id_to_taxon[tax_id]
 
-        d_tmp = {"tax_id": tax_id}
+            d_tmp = {"tax_id": tax_id}
 
-        series1 = df_communities_read_abundances.query(f"taxon == '{taxon}'")
-        assert len(series1) == 2
+            series1 = df_communities_read_abundances.query(f"taxon == '{taxon}'")
+            assert len(series1) == 2
 
-        d_tmp["simulated_seq_depth_ancient"] = series1.query(
-            "frag_type == 'ancient'"
-        ).iloc[0]["seq_depth"]
-        d_tmp["simulated_seq_depth_modern"] = series1.query(
-            "frag_type == 'modern'"
-        ).iloc[0]["seq_depth"]
+            d_tmp["simulated_seq_depth_ancient"] = series1.query(
+                "frag_type == 'ancient'"
+            ).iloc[0]["seq_depth"]
+            d_tmp["simulated_seq_depth_modern"] = series1.query(
+                "frag_type == 'modern'"
+            ).iloc[0]["seq_depth"]
 
-        series2 = df_genome_compositions.query(f"Taxon == '{taxon}'")
-        assert len(series2) == 1
-        series2 = series2.iloc[0]
+            series2 = df_genome_compositions.query(f"Taxon == '{taxon}'")
+            assert len(series2) == 1
+            series2 = series2.iloc[0]
 
-        d_tmp["simulated_only_ancient"] = series2.onlyAncient
-        d_tmp["simulated_D_max"] = series2.D_max
+            d_tmp["simulated_only_ancient"] = series2.onlyAncient
+            d_tmp["simulated_D_max"] = series2.D_max
 
-        tmp.append(d_tmp)
+            tmp.append(d_tmp)
+
+        except KeyError:
+            pass
 
     df_tmp = pd.DataFrame(tmp)
 
-    return pd.merge(df_comparison, df_tmp, on="tax_id")
+    return pd.merge(df, df_tmp, on="tax_id")
 
 
 #%%
@@ -1248,7 +1287,7 @@ def get_df_comparison_path(path_comparison, sample, N_reads, simulation_method):
     return filename
 
 
-def get_df_comparison(
+def load_df_comparison(
     df_simulation_alignment,
     df_metaDMG_mapped,
     df_metaDMG_mismatch,
@@ -1308,14 +1347,12 @@ def main(p):
         sample,
         N_reads,
         simulation_method,
-        path_data,
         path_alignment_files,
         path_alignment_parquet,
         path_analysis_lca,
         path_genome_fasta,
         path_comparison,
         simulation_methods,
-        d_sim_name_translate,
     ) = p
 
     # pbar.set_description(
@@ -1347,27 +1384,21 @@ def main(p):
     )
 
     df_metaDMG_mismatch_all = load_df_metaDMG_mismatch_all(
-        path_data,
         sample,
         N_reads,
         simulation_methods,
-        d_sim_name_translate,
     )
 
     df_metaDMG_results_all = load_df_metaDMG_results_all(
-        path_data,
         sample,
         N_reads,
         simulation_methods,
-        d_sim_name_translate,
     )
 
     df_metaDMG_mapped = load_metaDMG_lca_file(
-        path_data,
         sample,
         simulation_method,
         N_reads,
-        d_sim_name_translate,
         path_analysis_lca,
     )
 
@@ -1378,7 +1409,7 @@ def main(p):
         N_reads,
     )
 
-    df_comparison = get_df_comparison(
+    df_comparison = load_df_comparison(
         df_simulation_alignment=df_simulation_alignment_all[simulation_method],
         df_metaDMG_mapped=df_metaDMG_mapped,
         df_metaDMG_mismatch=df_metaDMG_mismatch_all[simulation_method],

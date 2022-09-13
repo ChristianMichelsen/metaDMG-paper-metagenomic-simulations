@@ -3,6 +3,8 @@
 /input-data/
 /genomes/
 /other/
+/figures/individual-comparison/
+/old_figures/
 .cache
 .DS_Store
 

@@ -15,7 +15,7 @@ seaborn = "^0.11.2"
 biopython = "^1.79"
 pyarrow = "^9.0.0"
 dash = {version = "^2.6.1", extras = ["diskcache"]}
-metadmg = {version = "^0.28.4", extras = ["fit"]}
+metadmg = {version = "^0.30.1", extras = ["all"]}
 numpyro = "^0.10.0"
 llvmlite = "^0.39.0"
 numpy = "1.22"
@@ -40,6 +40,8 @@ plotly = "^5.10.0"
 joblib = "^1.1.0"
 SciencePlots = "^1.0.9"
 engineering-notation = "^0.6.0"
+# statsmodels = "^0.13.2"
+statsmodels = {git = "https://github.com/statsmodels/statsmodels", rev = "v0.14.0.dev0"}
 
 
 [tool.poetry.group.dev.dependencies]

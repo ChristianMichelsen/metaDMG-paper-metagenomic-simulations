@@ -18,14 +18,14 @@ import utils
 
 #%%
 
-MAX_WORKERS = 20
+MAX_WORKERS = 10
 
 is_mac = platform.system() == "Darwin"
 if is_mac:
     MAX_WORKERS = 1
 
 
-path_data = Path("data")
+path_data = utils.PATH_DATA
 
 path_alignment_files = (
     Path("/willerslev")
@@ -41,12 +41,6 @@ if is_mac:
 
 simulation_methods = ["frag", "deam", "art"]
 
-d_sim_name_translate = {
-    "frag": "fragSim",
-    "deam": "deamSim",
-    "art": "art",
-}
-
 path_alignment_parquet = path_data / "analysis_alignment"
 path_alignment_parquet.mkdir(exist_ok=True)
 
@@ -55,7 +49,6 @@ path_analysis_lca.mkdir(exist_ok=True)
 
 path_comparison = path_data / "analysis_comparison"
 path_comparison.mkdir(exist_ok=True)
-
 
 path_genome_fasta = (
     Path("/willerslev")
@@ -94,14 +87,13 @@ simulation_method = "deam"
 #%%
 
 
-_inputs = list(
-    utils.get_sample_N_reads_simulation_method(path_data, d_sim_name_translate)
-)
+_inputs = list(utils.get_sample_N_reads_simulation_method(path_data))
 
 if is_mac:
     _inputs = [
         ("Pitch-6", 1000000, "deam"),
         ("Lake-9", 1000000, "frag"),
+        ("Cave-100-forward", 1000000, "art"),
     ]
 
 
@@ -112,14 +104,12 @@ for (sample, N_reads, simulation_method) in _inputs:
             sample,
             N_reads,
             simulation_method,
-            path_data,
             path_alignment_files,
             path_alignment_parquet,
             path_analysis_lca,
             path_genome_fasta,
             path_comparison,
             simulation_methods,
-            d_sim_name_translate,
         )
     )
 
