@@ -91,9 +91,9 @@ _inputs = list(utils.get_sample_N_reads_simulation_method(path_data))
 
 if is_mac:
     _inputs = [
-        ("Pitch-6", 1000000, "deam"),
-        ("Lake-9", 1000000, "frag"),
-        ("Cave-100-forward", 1000000, "art"),
+        ("Pitch-6", 1_000_000, "deam"),
+        # ("Lake-9", 1000000, "frag"),
+        # ("Cave-100-forward", 1000000, "art"),
     ]
 
 
@@ -115,9 +115,10 @@ for (sample, N_reads, simulation_method) in _inputs:
 
 
 if __name__ == "__main__":
-
     if MAX_WORKERS == 1:
         for p in tqdm(inputs):
+
+            x=x
             utils.main(p)
 
     else:
