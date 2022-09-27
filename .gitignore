@@ -1,10 +1,13 @@
 /data/
+/data-forward/
+/data-*
 /logs/
 /input-data/
 /genomes/
 /other/
 /figures/individual-comparison/
 /old_figures/
+/old/
 .cache
 .DS_Store
 
@@ -12,3 +15,6 @@ acc2taxid.map.gz
 names.dmp
 nodes.dmp
 simulations.code-workspace
+
+/mapping_homo/
+subset_A_slash_B.bam

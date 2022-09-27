@@ -101,7 +101,6 @@ df_comparisons = load_df_comparisons()
 
 #%%
 
-x = x
 
 #%%
 

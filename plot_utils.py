@@ -543,7 +543,7 @@ def plot_comparison_across_N_reads_simulated_and_sim_method(
                 / f"{sample}.comparison-across-N_reads_simulated-and-sim_method.{suffix}.pdf"
             )
 
-            fig_name.parent.mkdir(exist_ok=True)
+            fig_name.parent.mkdir(exist_ok=True, parents=True)
 
             groupby = df_sample.groupby("tax_id", sort=False)
 

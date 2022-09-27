@@ -853,33 +853,31 @@ def compute_lca_stats_min_similarity_score(
 #%%
 
 
-def load_communities_read_abundances(name, N_reads):
+# def load_communities_read_abundances(path_alignment_files, name, N_reads):
 
-    path_communities_read_abundances = (
-        Path("input-data")
-        / "data-pre-mapping"
-        / name
-        / "single"
-        / str(N_reads)
-        / f"{name}.communities_read-abundances.tsv"
-    )
-    return pd.read_csv(path_communities_read_abundances, sep="\t")
-
-
-#%%
+#     path_communities_read_abundances = (
+#         path_alignment_files
+#         / name
+#         / "single"
+#         / str(N_reads)
+#         / f"{name}.communities_read-abundances.tsv"
+#     )
+#     return pd.read_csv(path_communities_read_abundances, sep="\t")
 
 
-def load_genome_composition(name, N_reads):
+# #%%
 
-    path_genome_composition = (
-        Path("input-data")
-        / "data-pre-mapping"
-        / name
-        / "single"
-        / str(N_reads)
-        / f"{name}.genome-compositions.tsv"
-    )
-    return pd.read_csv(path_genome_composition, sep="\t")
+
+# def load_genome_composition(path_alignment_files, name, N_reads):
+
+#     path_genome_composition = (
+#         path_alignment_files
+#         / name
+#         / "single"
+#         / str(N_reads)
+#         / f"{name}.genome-compositions.tsv"
+#     )
+#     return pd.read_csv(path_genome_composition, sep="\t")
 
 
 #%%
@@ -1205,6 +1203,7 @@ def compute_comparison(
 
 
 def add_simulation_information_to_df_comparison(
+    path_alignment_files,
     df_comparison,
     sample,
     N_reads,
@@ -1220,7 +1219,7 @@ def add_simulation_information_to_df_comparison(
 
     if "-forward" in sample:
         sample = sample.replace("-forward", "")
-    prefix = Path("input-data") / "data-pre-mapping" / sample / "single" / str(N_reads)
+    prefix = path_alignment_files / sample / "single" / str(N_reads)
 
     df_communities_read_abundances = pd.read_csv(
         prefix / f"{sample}.communities_read-abundances.tsv",
@@ -1294,6 +1293,7 @@ def load_df_comparison(
     df_metaDMG_results,
     d_reference_sequences,
     path_comparison,
+    path_alignment_files,
     sample,
     N_reads,
     simulation_method,
@@ -1322,6 +1322,7 @@ def load_df_comparison(
     )
 
     df_comparison = add_simulation_information_to_df_comparison(
+        path_alignment_files,
         df_comparison,
         sample,
         N_reads,
@@ -1416,6 +1417,7 @@ def main(p):
         df_metaDMG_results=df_metaDMG_results_all[simulation_method],
         d_reference_sequences=d_reference_sequences,
         path_comparison=path_comparison,
+        path_alignment_files=path_alignment_files,
         sample=sample,
         N_reads=N_reads,
         simulation_method=simulation_method,

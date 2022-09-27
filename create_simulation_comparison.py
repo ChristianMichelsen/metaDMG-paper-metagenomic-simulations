@@ -18,7 +18,7 @@ import utils
 
 #%%
 
-MAX_WORKERS = 10
+MAX_WORKERS = 20
 
 is_mac = platform.system() == "Darwin"
 if is_mac:
@@ -33,6 +33,7 @@ path_alignment_files = (
     / "antonio"
     / "projects"
     / "metaDMG-sims"
+    / "20220926"
     / "synthetic-data"
     / "results"
 )
@@ -117,8 +118,8 @@ for (sample, N_reads, simulation_method) in _inputs:
 if __name__ == "__main__":
     if MAX_WORKERS == 1:
         for p in tqdm(inputs):
-
-            x=x
+            if is_mac:
+                x = x
             utils.main(p)
 
     else:
