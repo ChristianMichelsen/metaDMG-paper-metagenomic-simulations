@@ -1,91 +1,96 @@
 #%%
 
 
+import warnings
+
 import arviz as az
 import bambi as bmb
+import numpy as np
+import pandas as pd
 
 #%%
 
+relevant_columns = [
+    "tax_id",
+    "tax_name",
+    "tax_rank",
+    "sample_name",
+    "N_reads",
+    "N_alignments",
+    "lambda_LR",
+    "D_max",
+    "mean_L",
+    "mean_GC",
+    "q",
+    "A",
+    "c",
+    "phi",
+    "rho_Ac",
+    "valid",
+    "asymmetry",
+    "std_L",
+    "std_GC",
+    "tax_path",
+    "D_max_std",
+    "q_std",
+    "phi_std",
+    "A_std",
+    "c_std",
+    "lambda_LR_P",
+    "lambda_LR_z",
+    "LR_All",
+    "chi2_all",
+    "N_x=1_forward",
+    "N_sum_total",
+    "N_sum_forward",
+    "N_min",
+    "k_sum_total",
+    "k_sum_forward",
+    "Bayesian_z",
+    "Bayesian_D_max",
+    "Bayesian_D_max_std",
+    "Bayesian_D_max_median",
+    "Bayesian_D_max_confidence_interval_1_sigma_low",
+    "Bayesian_D_max_confidence_interval_1_sigma_high",
+    "Bayesian_D_max_confidence_interval_95_low",
+    "Bayesian_D_max_confidence_interval_95_high",
+    "Bayesian_A",
+    "Bayesian_A_std",
+    "Bayesian_A_median",
+    "Bayesian_A_confidence_interval_1_sigma_low",
+    "Bayesian_A_confidence_interval_1_sigma_high",
+    "Bayesian_q",
+    "Bayesian_q_std",
+    "Bayesian_q_median",
+    "Bayesian_q_confidence_interval_1_sigma_low",
+    "Bayesian_q_confidence_interval_1_sigma_high",
+    "Bayesian_c",
+    "Bayesian_c_std",
+    "Bayesian_c_median",
+    "Bayesian_c_confidence_interval_1_sigma_low",
+    "Bayesian_c_confidence_interval_1_sigma_high",
+    "Bayesian_phi",
+    "Bayesian_phi_std",
+    "Bayesian_phi_median",
+    "Bayesian_phi_confidence_interval_1_sigma_low",
+    "Bayesian_phi_confidence_interval_1_sigma_high",
+    "Bayesian_rho_Ac",
+    "D_max_significance",
+    "rho_Ac_abs",
+    "Bayesian_D_max_significance",
+    "Bayesian_rho_Ac_abs",
+    "sample",
+    "N_reads_simulated",
+    "simulation_method",
+    "simulated_seq_depth_ancient",
+    "simulated_seq_depth_modern",
+    "simulated_only_ancient",
+    "simulated_D_max",
+]
 
-class GLM:
-    def __init__(
-        self,
-        cols_to_use,
-        family="bernoulli",
-        seed=42,
-        do_scale=True,
-        y_col="y",
-    ):
-        self.cols_to_use = cols_to_use
-        self.family = family
-        self.seed = seed
-        self.do_scale = do_scale
-        self.y_col = y_col
-        self.is_fitted = False
 
-        self.formula = self.get_formula()
+#%%
 
-    def get_formula(self):
-        prefix = "scale(" if self.do_scale else ""
-        suffix = ")" if self.do_scale else ""
-
-        formula = f"{self.y_col}['1'] ~ "
-        formula += " + ".join([f"{prefix}{col}{suffix}" for col in self.cols_to_use])
-        return formula
-
-    def init(self, Xy):
-        self.model = bmb.Model(self.formula, Xy, family=self.family)
-        self.model.build()
-        return self
-
-    def fit(self, Xy=None, draws=1000, chains=4, cores=1):
-
-        if Xy is not None:
-            self.init(Xy)
-
-        self.results = self.model.fit(
-            draws=draws,
-            chains=chains,
-            cores=cores,
-            random_seed=self.seed,
-        )
-
-        self.summary = az.summary(self.results)
-
-        self.t_values = (
-            (self.summary["mean"] / self.summary["sd"])
-            .abs()
-            .sort_values(ascending=False)
-        )
-
-        self.is_fitted = True
-        return self
-
-    def plot_trace(self, figsize=(10, 20)):
-
-        # Use ArviZ to plot the results
-        az.plot_trace(
-            self.results,
-            compact=False,
-            figsize=(10, 20),
-            show=True,
-        )
-
-    def predict(self, Xy):
-
-        y_predict = (
-            self.model.predict(
-                self.results,
-                kind="mean",  # pps, mean
-                data=Xy[self.cols_to_use],
-                inplace=False,
-            )
-            .posterior["y_mean"]
-            .mean(dim=["chain", "draw"])
-            .values
-        )
-
-        return y_predict
 
 
 #%%

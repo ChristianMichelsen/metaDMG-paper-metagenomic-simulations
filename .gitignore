@@ -1,6 +1,7 @@
 /data/
 /data-forward/
 /data-*
+/data_*
 /logs/
 /input-data/
 /genomes/

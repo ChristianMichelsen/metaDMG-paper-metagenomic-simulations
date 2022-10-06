@@ -45,7 +45,7 @@ statsmodels = "^0.13.2"
 scikit-learn = "^1.1.2"
 pymc = "^4.2.0"
 bambi = "^0.9.1"
-metadmg = {version = "^0.32.0", extras = ["all"]}
+metadmg = {version = "^0.32.4", extras = ["all"]}
 numba = "^0.56.2"
 bokeh = "^2.4.3"
 pygraphviz = "^1.10"
