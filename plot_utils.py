@@ -530,7 +530,10 @@ def plot_comparison_across_N_reads_simulated_and_sim_method(
         # tax_ids_in_all = df_sample.tax_id.unique()
 
         tax_ids_in_all = (
-            df_sample.groupby("tax_id").sum()["|D|"].sort_values(ascending=False).index
+            df_sample.groupby("tax_id")
+            .sum(numeric_only=True)["|D|"]
+            .sort_values(ascending=False)
+            .index
         )
 
         if len(tax_ids_in_all) > 0:

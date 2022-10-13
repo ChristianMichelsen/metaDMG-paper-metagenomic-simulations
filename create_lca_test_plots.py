@@ -34,7 +34,7 @@ def load_df_comparisons():
     paths = sorted(Path("data/analysis_comparison").glob("*.csv"))
 
     dfs = []
-    for path in paths:
+    for path in tqdm(paths):
         # break
 
         sample, N_reads, simulation_method = get_sample_N_reads_simulation_method(path)
@@ -68,8 +68,13 @@ def load_df_comparisons():
             "tax_name",
             "D_max",
             "Bayesian_D_max",
-            "lambda_LR",
-            "Bayesian_z",
+            # "lambda_LR",
+            # "Bayesian_z",
+            "Bayesian_significance",
+            "Bayesian_prob_not_zero_damage",
+            "Bayesian_prob_gt_1p_damage",
+            "Bayesian_D_max_CI_low",
+            "Bayesian_D_max_CI_high",
         ]
 
         if "f-15" in df_metaDMG_results.columns:
@@ -98,6 +103,7 @@ df_comparisons = load_df_comparisons()
 
 #%%
 
+#%%
 
 reload(plot_utils)
 
@@ -113,10 +119,10 @@ plot_utils.plot_comparison_across_N_reads_simulated_and_sim_method(
 
 #%%
 
-# reload(plot_utils)
-
 groups = df_comparisons.groupby(by=["sample", "N_reads_simulated", "simulation_method"])
 for (sample, N_reads_simulated, simulation_method), df_comparison in tqdm(groups):
     plot_utils.plot_df_comparison_plt(
         df_comparison, sample, N_reads_simulated, simulation_method
     )
+
+

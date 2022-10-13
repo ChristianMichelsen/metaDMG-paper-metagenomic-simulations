@@ -19,6 +19,7 @@ import utils
 #%%
 
 MAX_WORKERS = 20
+MAX_WORKERS = 1
 
 is_mac = platform.system() == "Darwin"
 if is_mac:
@@ -33,7 +34,7 @@ path_alignment_files = (
     / "antonio"
     / "projects"
     / "metaDMG-sims"
-    / "20220926"
+    / "20221010"
     / "synthetic-data"
     / "results"
 )

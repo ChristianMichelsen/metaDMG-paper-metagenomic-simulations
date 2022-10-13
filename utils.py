@@ -62,6 +62,8 @@ parser_template = (
 
 
 def fix_accession(accession):
+    if accession.startswith("_"):
+        accession = accession[1:]
     accession_fixed = nth_repl(accession, "_", ".", 2)
     return accession_fixed
 
@@ -279,6 +281,7 @@ def load_simulation_alignment(
             seq = record.seq
             result = parser.parse(name).named
             result["seq"] = str(seq)
+
             result["tax_id"] = d_acc2taxid[result["accession"]]
             result["taxon_accession"] = f"{result['taxon']}----{result['accession']}"
             result["read_name"] = extract_unique_read_name(result)
@@ -341,9 +344,8 @@ def load_simulation_alignment_all(
 
     for sim_method in simulation_methods:
 
-        # (df_simulation_alignment, df_simulation_mismatch,) = load_simulation_alignment(
         df_simulation_alignment = load_simulation_alignment(
-            path_simulation_alignment_all[sim_method],
+            path_alignment=path_simulation_alignment_all[sim_method],
             feather_file=path_alignment_parquet
             / f"{sample}.{N_reads}.{sim_method}.feather",
         )
@@ -401,6 +403,28 @@ def load_df_metaDMG_results_all(
         df_metaDMG_results = pd.read_parquet(
             path_data / "results" / f"{sample}__{sim_name}__{N_reads}.results.parquet"
         )
+
+        df_metaDMG_results["significance"] = (
+            df_metaDMG_results["D_max"] / df_metaDMG_results["D_max_std"]
+        )
+        df_metaDMG_results["Bayesian_significance"] = (
+            df_metaDMG_results["Bayesian_D_max"]
+            / df_metaDMG_results["Bayesian_D_max_std"]
+        )
+
+        df_metaDMG_results["Bayesian_prob_not_zero_damage"] = (
+            1 - df_metaDMG_results["Bayesian_prob_zero_damage"]
+        )
+        df_metaDMG_results["Bayesian_prob_gt_1p_damage"] = (
+            1 - df_metaDMG_results["Bayesian_prob_lt_1p_damage"]
+        )
+
+        df_metaDMG_results["Bayesian_D_max_CI_low"] = df_metaDMG_results[
+            "Bayesian_D_max_confidence_interval_1_sigma_low"
+        ]
+        df_metaDMG_results["Bayesian_D_max_CI_high"] = df_metaDMG_results[
+            "Bayesian_D_max_confidence_interval_1_sigma_high"
+        ]
 
         df_metaDMG_results_all[sim_method] = df_metaDMG_results
 
@@ -1160,6 +1184,18 @@ def compute_comparison(
         df_C_slash_A
 
         # mismatch information from metaDMG:
+
+        columns_to_keep = [
+            "D_max",
+            "Bayesian_D_max",
+            "significance",
+            "Bayesian_significance",
+            "Bayesian_prob_not_zero_damage",
+            "Bayesian_prob_gt_1p_damage",
+            "Bayesian_D_max_CI_low",
+            "Bayesian_D_max_CI_high",
+        ]
+
         series = df_metaDMG_results.query(f"tax_id == '{tax_id}'")
         if len(series) > 1:
             raise AssertionError("series should be of length 1")
@@ -1172,19 +1208,17 @@ def compute_comparison(
                 df_metaDMG_mismatch.query(f"tax_id == '{tax_id}' & abs(position) == 1"),
                 "D",
             )
-            d["D_max"] = series["D_max"]
-            d["Bayesian_D_max"] = series["Bayesian_D_max"]
-            d["lambda_LR"] = series["lambda_LR"]
-            d["Bayesian_z"] = series["Bayesian_z"]
+
+            for column in columns_to_keep:
+                d[column] = series[column]
 
         # if tax id not in metaDMG results
         else:
             d[f"|D|"] = 0
             _add_counts_to_dict_bang_empty(d, "D")
-            d["D_max"] = np.nan
-            d["Bayesian_D_max"] = np.nan
-            d["lambda_LR"] = np.nan
-            d["Bayesian_z"] = np.nan
+
+            for column in columns_to_keep:
+                d[column] = np.nan
 
         out.append(d)
 
@@ -1384,11 +1418,14 @@ def main(p):
         N_reads,
     )
 
-    df_metaDMG_mismatch_all = load_df_metaDMG_mismatch_all(
-        sample,
-        N_reads,
-        simulation_methods,
-    )
+    try:
+        df_metaDMG_mismatch_all = load_df_metaDMG_mismatch_all(
+            sample,
+            N_reads,
+            simulation_methods,
+        )
+    except FileNotFoundError:
+        return None
 
     df_metaDMG_results_all = load_df_metaDMG_results_all(
         sample,
@@ -1422,3 +1459,72 @@ def main(p):
         N_reads=N_reads,
         simulation_method=simulation_method,
     )
+
+
+
+#%%
+
+
+def list_subdirs(directory):
+    return [path for path in directory.glob("*/") if path.is_dir()]
+
+
+def get_simulation_details(directory):
+
+    out = []
+    for subdir_sample in tqdm(list_subdirs(directory)):
+        # break
+
+        sample = subdir_sample.name
+
+        for subdir_N_reads in list_subdirs(subdir_sample / "single"):
+            # break
+
+            N_reads = int(subdir_N_reads.name)
+
+            df_communities_read_abundances = pd.read_csv(
+                subdir_N_reads / f"{sample}.communities_read-abundances.tsv",
+                sep="\t",
+            )  # .rename(columns={"taxon": "Taxon"})
+
+            df_genome_compositions = pd.read_csv(
+                subdir_N_reads / f"{sample}.genome-compositions.tsv",
+                sep="\t",
+            )
+
+            df_file_paths = pd.read_csv(
+                subdir_N_reads / f"{sample}.filepaths.tsv",
+                sep="\t",
+            )
+
+            for row in df_file_paths.itertuples():
+
+                taxon = row.Taxon
+                tax_id = row.TaxId
+
+                series1 = df_genome_compositions[df_genome_compositions.Taxon == taxon]
+                assert len(series1) == 1
+                series1 = series1.iloc[0]
+
+                series2 = df_communities_read_abundances[
+                    df_communities_read_abundances.taxon == taxon
+                ]
+                assert len(series2) == 2
+
+                d_tmp = {
+                    "sample": sample,
+                    "tax_id": tax_id,
+                    "taxon": taxon,
+                    "simulated_N_reads": N_reads,
+                    "simulated_only_ancient": series1.onlyAncient,
+                    "simulated_D_max": series1.D_max,
+                    "simulated_seq_depth_ancient": series2.query(
+                        "frag_type == 'ancient'"
+                    ).iloc[0]["seq_depth"],
+                    "simulated_seq_depth_modern": series2.query(
+                        "frag_type == 'modern'"
+                    ).iloc[0]["seq_depth"],
+                }
+                out.append(d_tmp)
+
+    return pd.DataFrame(out)
