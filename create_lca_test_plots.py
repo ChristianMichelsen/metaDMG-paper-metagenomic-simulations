@@ -18,6 +18,11 @@ import utils
 
 #%%
 
+plt.style.use("plotstyle.mplstyle")
+
+
+#%%
+
 parser_comparison = parse.compile(
     "{sample}.{N_reads:Int}.{sim_name}.comparison",
     dict(Int=int),
@@ -103,6 +108,41 @@ df_comparisons = load_df_comparisons()
 
 #%%
 
+df_all = pd.read_parquet("df_all.parquet")
+
+
+#%%
+
+x = x
+
+
+#%%
+
+
+df_comparisons.query("tax_id == 127401")
+df_all.query("tax_id == 127401")
+
+
+#%%
+
+
+for sample, df_sample in tqdm(df_comparisons.groupby("sample", sort=False)):
+    if sample == "Pitch-6":
+        break
+
+
+df_sample
+
+#%%
+
+
+for sample, df_sample in tqdm(df_all.groupby("sample", sort=False)):
+    if sample == "Pitch-6":
+        break
+
+
+df_sample
+
 #%%
 
 reload(plot_utils)
@@ -119,10 +159,15 @@ plot_utils.plot_comparison_across_N_reads_simulated_and_sim_method(
 
 #%%
 
-groups = df_comparisons.groupby(by=["sample", "N_reads_simulated", "simulation_method"])
-for (sample, N_reads_simulated, simulation_method), df_comparison in tqdm(groups):
-    plot_utils.plot_df_comparison_plt(
-        df_comparison, sample, N_reads_simulated, simulation_method
+if False:
+
+    reload(plot_utils)
+    groups = df_comparisons.groupby(
+        by=["sample", "N_reads_simulated", "simulation_method"]
     )
+    for (sample, N_reads_simulated, simulation_method), df_comparison in tqdm(groups):
+        plot_utils.plot_df_comparison_plt(
+            df_comparison, sample, N_reads_simulated, simulation_method
+        )
 
-
+# %%

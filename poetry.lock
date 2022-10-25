@@ -7,6 +7,18 @@ optional = false
 python-versions = ">=3.6"
 
 [[package]]
+name = "adjustText"
+version = "0.7.3"
+description = "Iteratively adjust text position in matplotlib plots to minimize overlaps"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+matplotlib = "*"
+numpy = "*"
+
+[[package]]
 name = "aeppl"
 version = "0.0.35"
 description = "PPL tools for Aesara"
@@ -1182,7 +1194,7 @@ traitlets = "*"
 
 [[package]]
 name = "metadmg"
-version = "0.35.1"
+version = "0.35.7"
 description = "metaDMG: Estimating ancient damage in (meta)genomic DNA rapidly"
 category = "main"
 optional = false
@@ -2300,12 +2312,15 @@ testing = ["func-timeout", "jaraco.itertools", "pytest (>=6)", "pytest-black (>=
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.9,<3.11"
-content-hash = "9b3dbe9b6d31b8467f465aaa2150308a58bd22de5ff220b2edc5970b174779eb"
+content-hash = "fd3e7d96438b633834e2798226c08278850d2ea9cd886bf6125bd5b376517738"
 
 [metadata.files]
 absl-py = [
     {file = "absl-py-1.2.0.tar.gz", hash = "sha256:f568809938c49abbda89826223c992b630afd23c638160ad7840cfe347710d97"},
     {file = "absl_py-1.2.0-py3-none-any.whl", hash = "sha256:5d15f85b8cc859c6245bc9886ba664460ed96a6fee895416caa37d669ee74a9a"},
+]
+adjustText = [
+    {file = "adjustText-0.7.3.tar.gz", hash = "sha256:b90e275a95b4d980cbbac7967914b8d66477c09bc346a0b3c9e2125bba664b06"},
 ]
 aeppl = [
     {file = "aeppl-0.0.35-py3-none-any.whl", hash = "sha256:cb55ce2c0c42aaeee079743948b2a387c2c53ac14dccb6692357a791f41d286c"},
@@ -3275,8 +3290,8 @@ matplotlib-inline = [
     {file = "matplotlib_inline-0.1.6-py3-none-any.whl", hash = "sha256:f1f41aab5328aa5aaea9b16d083b128102f8712542f819fe7e6a420ff581b311"},
 ]
 metadmg = [
-    {file = "metadmg-0.35.1-py3-none-any.whl", hash = "sha256:e571f62639f9631a2dcbd9cff4f617c9e8031e6e4ac1851d5f40eea79a36ea29"},
-    {file = "metadmg-0.35.1.tar.gz", hash = "sha256:d4e20e1c7b4fa38b07800eb5165ed58e5c82f04d856ef9580350d8c195d1c877"},
+    {file = "metadmg-0.35.7-py3-none-any.whl", hash = "sha256:3f948e6ef945b934f67987b5e7f05efa5df9541070ffa2e73d86cfa252d7b582"},
+    {file = "metadmg-0.35.7.tar.gz", hash = "sha256:a207908efdbdd1921a6346924e81ee23b525f81555ccefaadbd74ca0a7cb44a5"},
 ]
 miniKanren = [
     {file = "miniKanren-1.0.3.tar.gz", hash = "sha256:1ec8bdb01144ad5e8752c7c297fb8a122db920f859276d25a72d164e998d7f6e"},

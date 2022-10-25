@@ -21,7 +21,13 @@ plt.rcParams["font.size"] = "16"
 #%%
 
 
-def plot_single_group(group, tax_id, sample, N_reads_simulated, simulation_method):
+def plot_single_group(
+    group,
+    tax_id,
+    sample,
+    N_reads_simulated,
+    simulation_method,
+):
 
     fig, (ax1, ax2) = plt.subplots(nrows=2, figsize=(10, 6))
 
@@ -150,7 +156,7 @@ def plot_single_group(group, tax_id, sample, N_reads_simulated, simulation_metho
         marker="o",
         markersize=10,
         linestyle="None",
-        label="C → T",
+        label=r"$C \rightarrow T$",
     )
 
     ax1.plot(
@@ -160,7 +166,7 @@ def plot_single_group(group, tax_id, sample, N_reads_simulated, simulation_metho
         marker="^",
         markersize=10,
         linestyle="None",
-        label="G → A",
+        label=r"$G \rightarrow A$",
     )
 
     ax1.set(
@@ -168,7 +174,10 @@ def plot_single_group(group, tax_id, sample, N_reads_simulated, simulation_metho
         ylim=(0, ax1.get_ylim()[1] * 1.1),
         xlim=(0.5, 6.5),
     )
-    ax1.set_xticks([1, 2, 3, 4, 5, 6], labels=["A", "A\B", "B", "B\C", "C", "D"])
+    ax1.set_xticks(
+        [1, 2, 3, 4, 5, 6],
+        labels=["A", "A\B", "B", "B\C", "C", "D"],
+    )
 
     ax1.axhline(
         group.simulated_D_max,
@@ -274,7 +283,10 @@ def plot_single_group(group, tax_id, sample, N_reads_simulated, simulation_metho
         xlim=(0.5, 6.5),
     )
 
-    ax2.set_xticks([1, 2, 3, 4, 5, 6], labels=["A", "A\B", "B", "B\C", "C", "D"])
+    ax2.set_xticks(
+        [1, 2, 3, 4, 5, 6],
+        labels=["A", "A\B", "B", "B\C", "C", "D"],
+    )
 
     ax1.legend(
         ncol=1,
@@ -321,9 +333,6 @@ def plot_single_group(group, tax_id, sample, N_reads_simulated, simulation_metho
     return fig
 
 
-# fig = plot_single_group(group, tax_id, sample, N_reads_simulated, simulation_method)
-
-
 #%%
 
 
@@ -346,24 +355,28 @@ def plot_df_comparison_plt(
     if use_tqdm:
         groupby = tqdm(groupby)
 
-    with PdfPages(fig_name) as pdf:
+    with mpl.rc_context({"text.usetex": False}):
 
-        for tax_id, group in groupby:
-            # break
+        with PdfPages(fig_name) as pdf:
 
-            if len(group) != 1:
-                raise ValueError(f"{tax_id} has {len(group)} rows")
+            for tax_id, group in groupby:
+                # break
 
-            group = group.iloc[0]
+                if len(group) != 1:
+                    raise ValueError(f"{tax_id} has {len(group)} rows")
 
-            fig = plot_single_group(
-                group, tax_id, sample, N_reads_simulated, simulation_method
-            )
+                group = group.iloc[0]
 
-            pdf.savefig(fig)
-            plt.close()
+                fig = plot_single_group(
+                    group,
+                    tax_id,
+                    sample,
+                    N_reads_simulated,
+                    simulation_method,
+                )
 
-            # break
+                pdf.savefig(fig)
+                plt.close()
 
 
 #%%
@@ -397,7 +410,7 @@ def plot_single_comparison_across_N_reads_simulated_and_sim_method(
         D_max_col = "D_max"
         D_max_std_col = "D_max_std"
 
-    d_colors = {"frag": "C0", "deam": "C2", "art": "C3"}
+    d_colors = {"frag": "C2", "deam": "C0", "art": "C1"}
 
     fig, ax = plt.subplots(figsize=(10, 6))
 
