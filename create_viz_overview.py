@@ -270,6 +270,18 @@ def plot_overview(
     ]
     d_colors = {sample: f"C{i}" for i, sample in enumerate(df_all["sample"].unique())}
 
+    symbols = [
+        "o",
+        "s",
+        "D",
+        "v",
+        "^",
+        ">",
+        "<",
+        "*",
+        "x",
+    ]
+
     fig, axes = plt.subplots(
         figsize=figsize,
         ncols=len(types),
@@ -292,6 +304,7 @@ def plot_overview(
                 alpha=0.8,
                 color=d_colors[sample],
                 label=sample,
+                marker=symbols[i_sample],
             )
 
         ax.set(
