@@ -12,6 +12,7 @@
 /figures/old/
 .cache
 .DS_Store
+__pycache__/
 
 acc2taxid.map.gz
 names.dmp
